@@ -1,0 +1,12 @@
+{
+  "name": "ash-attendance-system-frontend",
+  "version": "1.0.0",
+  "description": "Frontend user interface for ASH Attendance System",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Frontend static assets ready'",
+    "build": "echo 'Building static frontend assets...'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
