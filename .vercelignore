@@ -1,0 +1,10 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+.env
+.venv
+venv/
+test_*.py
+seed_data.py
+*.md
