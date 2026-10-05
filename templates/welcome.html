@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Ash Education | Smart Attendance Portal</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      position: relative;
+      background-color: #0b1329;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Fixed Full-Page Mural Background Layer */
+    .welcome-bg-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      z-index: 0;
+      transform: translateZ(0);
+    }
+
+    /* Soft Atmospheric Tint - Keeps mural image rich while maintaining stellar legibility */
+    .welcome-bg-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(
+        180deg,
+        rgba(15, 23, 42, 0.32) 0%,
+        rgba(15, 23, 42, 0.48) 45%,
+        rgba(15, 23, 42, 0.72) 100%
+      );
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .welcome-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 24px 64px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Top Header Bar */
+    .welcome-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    .welcome-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .welcome-brand-text h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      color: #0f172a;
+      line-height: 1.2;
+      margin: 0;
+    }
+    .welcome-brand-text p {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin: 2px 0 0 0;
+    }
+
+    /* Premium Translucent Frosted Glass Campus Description Card */
+    .welcome-description-card {
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1.5px solid rgba(255, 255, 255, 0.75);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.45) inset;
+      padding: 40px 44px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      animation: fadeInCard 0.4s ease-out;
+    }
+
+    .welcome-description-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, #2563eb, #38bdf8, #10b981, #f59e0b);
+      opacity: 0.9;
+    }
+
+    @keyframes fadeInCard {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .welcome-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 246, 255, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #1d4ed8;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      border: 1px solid rgba(191, 219, 254, 0.95);
+      margin-bottom: 16px;
+      align-self: flex-start;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+    }
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      background: #2563eb;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(37, 99, 235, 0.6);
+    }
+    .badge-divider {
+      color: #93c5fd;
+      font-size: 11px;
+    }
+    .badge-highlight {
+      color: #2563eb;
+      font-weight: 800;
+    }
+
+    .welcome-title {
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.25;
+      letter-spacing: -0.6px;
+      color: #0f172a;
+      margin: 0 0 14px 0;
+    }
+    .title-gradient {
+      background: linear-gradient(135deg, #1e40af 0%, #0d9488 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .welcome-tagline {
+      font-size: 15.5px;
+      font-weight: 500;
+      color: #1e293b;
+      line-height: 1.7;
+      margin: 0 0 28px 0;
+      max-width: 1050px;
+    }
+    .welcome-tagline strong {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    /* 4 Distinct Facility Showcase Cards in 2x2 Grid - Translucent Frosted Glass */
+    .welcome-facilities-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 26px;
+    }
+
+    .facility-box {
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      border-radius: 16px;
+      padding: 20px 22px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+    .facility-box:hover {
+      background: rgba(255, 255, 255, 0.82);
+      border-color: #60a5fa;
+      transform: translateY(-3px);
+      box-shadow: 0 14px 28px -6px rgba(37, 99, 235, 0.20), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+    }
+
+    .facility-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+    .facility-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+    .facility-icon-wrap.blue { background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; }
+    .facility-icon-wrap.emerald { background: linear-gradient(135deg, #059669, #0d9488); color: #ffffff; }
+    .facility-icon-wrap.purple { background: linear-gradient(135deg, #7c3aed, #9333ea); color: #ffffff; }
+    .facility-icon-wrap.amber { background: linear-gradient(135deg, #ea580c, #d97706); color: #ffffff; }
+
+    .facility-title-wrap h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+    }
+    .facility-title-wrap span {
+      font-size: 11px;
+      color: #475569;
+      font-weight: 600;
+    }
+
+    .facility-box p {
+      font-size: 13px;
+      color: #334155;
+      font-weight: 500;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .facility-footer-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+
+    .facility-chip {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 9999px;
+    }
+    .facility-chip.chip-blue { background: rgba(239, 246, 255, 0.9); color: #1d4ed8; }
+    .facility-chip.chip-emerald { background: rgba(236, 253, 245, 0.9); color: #047857; }
+    .facility-chip.chip-purple { background: rgba(250, 245, 255, 0.9); color: #6b21a8; }
+    .facility-chip.chip-amber { background: rgba(255, 251, 235, 0.9); color: #b45309; }
+
+    /* Executive Institutional Accreditation & Campus Meta Strip - Translucent Glass */
+    .institutional-overview-box {
+      background: rgba(255, 255, 255, 0.50);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(255, 255, 255, 0.75);
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+    }
+    .overview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+    }
+    .overview-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .overview-header-left svg {
+      color: #2563eb;
+    }
+    .overview-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(236, 253, 245, 0.9);
+      backdrop-filter: blur(6px);
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+    }
+    .status-pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .overview-col {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+    .overview-col-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .overview-col-icon.blue { background: #eff6ff; color: #2563eb; }
+    .overview-col-icon.green { background: #ecfdf5; color: #059669; }
+    .overview-col-icon.amber { background: #fffbeb; color: #d97706; }
+
+    .overview-col-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .overview-col-info .col-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 2px;
+    }
+    .overview-col-info .col-val {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Grade Selection Section */
+    .welcome-grade-section {
+      margin-top: 4px;
+    }
+    .grade-section-header {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 24px auto;
+    }
+    .grade-section-header h2 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.4px;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+      margin: 0 0 8px 0;
+    }
+    .grade-section-header p {
+      font-size: 14.5px;
+      color: #e2e8f0;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .grade-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .grade-select-card {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+    }
+    .grade-select-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: transparent;
+      transition: background 0.25s ease;
+    }
+    .grade-select-card:hover {
+      background: rgba(255, 255, 255, 0.94);
+      transform: translateY(-5px);
+      border-color: var(--primary);
+      box-shadow: 0 16px 32px rgba(37, 99, 235, 0.28), 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    .grade-select-card:hover::before {
+      background: var(--primary);
+    }
+    .grade-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .grade-icon-bubble {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: #eff6ff;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 800;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+      transition: var(--transition);
+    }
+    .grade-select-card:hover .grade-icon-bubble {
+      background: var(--primary);
+      color: white;
+    }
+    .grade-card-body h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 6px 0;
+    }
+    .grade-card-body p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin: 0;
+    }
+    .grade-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-light);
+      margin-top: 8px;
+    }
+    .grade-count-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0369a1;
+      background: #f0f9ff;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+    }
+    .enter-btn-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: gap 0.2s ease;
+    }
+    .grade-select-card:hover .enter-btn-text {
+      gap: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .welcome-description-card {
+        padding: 26px 20px;
+      }
+      .welcome-title {
+        font-size: 25px;
+      }
+      .welcome-facilities-grid {
+        grid-template-columns: 1fr;
+      }
+      .overview-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .welcome-container {
+        padding: 14px 12px 60px 12px;
+        gap: 16px;
+      }
+      .welcome-topbar {
+        padding: 10px 14px;
+        border-radius: 14px;
+      }
+      .welcome-brand-text h1 {
+        font-size: 17px;
+      }
+      .live-clock-pill {
+        display: none;
+      }
+      .welcome-description-card {
+        padding: 20px 14px;
+        border-radius: 16px;
+      }
+      .welcome-title {
+        font-size: 22px;
+      }
+      .welcome-tagline {
+        font-size: 13.5px;
+        margin-bottom: 18px;
+      }
+      .facility-box {
+        padding: 16px 14px;
+      }
+      .grade-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .welcome-title {
+        font-size: 20px;
+      }
+      .welcome-badge-pill {
+        font-size: 11px;
+        padding: 4px 10px;
+      }
+      .overview-col {
+        padding: 10px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Fixed Full-Page Mural Background Layer -->
+  <div class="welcome-bg-layer" id="welcome-bg-layer" style="background-image: url('{{ url_for('static', filename='img/welcome_mural.jpg') }}');"></div>
+  <div class="welcome-bg-overlay"></div>
+
+  <div class="welcome-container">
+    <!-- Top Navigation Bar -->
+    <header class="welcome-topbar">
+      <div class="welcome-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+          </svg>
+        </div>
+        <div class="welcome-brand-text">
+          <h1>Ash Education</h1>
+          <p>Smart School Attendance Portal</p>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div class="live-clock-pill">
+          <svg class="clock-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="current-clock-display">{{ today }}</span>
+        </div>
+
+
+        <a href="{{ url_for('dashboard', grade='All') }}" class="btn btn-primary btn-sm">
+          <span>Enter Master Console &rarr;</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Executive School Information & Campus Showcase Card -->
+    <section class="welcome-description-card">
+      <!-- Badge Pill -->
+      <div class="welcome-badge-pill">
+        <span class="badge-dot"></span>
+        <span>Ash Education Institutional Campus</span>
+      </div>
+
+      <h2 class="welcome-title">
+        Ash Education Academy <span class="title-gradient">&amp; Campus Portal</span>
+      </h2>
+      <p class="welcome-tagline">
+        <strong>Ash Education</strong> is a premier academic institution committed to intellectual rigor, moral values, and student empowerment. Our campus combines a rich cultural foundation with modern pedagogical methodologies, providing students from middle school through senior secondary graduation with an inspiring environment to achieve their highest potential.
+      </p>
+
+      <!-- 4 High-Tech Campus Facility Cards in 2x2 Grid -->
+      <div class="welcome-facilities-grid">
+        <!-- Facility 1: Science & Innovation Labs -->
+        <div class="facility-box">
+          <div>
+            <div class="facility-top">
+              <div class="facility-icon-wrap blue">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 2v7.31L4.69 19.3A2 2 0 0 0 6.44 22h11.12a2 2 0 0 0 1.75-2.7L14 9.31V2"></path>
+                  <line x1="8.5" y1="2" x2="15.5" y2="2"></line>
+                  <path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path>
+                </svg>
+              </div>
+              <div class="facility-title-wrap">
+                <h4>Science &amp; Innovation Labs</h4>
+                <span>Experiential STEM Research</span>
+              </div>
+            </div>
+            <p>Advanced physics, chemistry, biology, and computer science laboratories for hands-on discovery and technical inquiry.</p>
+          </div>
+          <div class="facility-footer-strip">
+            <span class="facility-chip chip-blue">4 Modern Research Labs</span>
+            <span style="font-size:11px; color:#2563eb; font-weight:700;">AI Equipped</span>
+          </div>
+        </div>
+
+        <!-- Facility 2: Comprehensive Digital Library -->
+        <div class="facility-box">
+          <div>
+            <div class="facility-top">
+              <div class="facility-icon-wrap emerald">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </div>
+              <div class="facility-title-wrap">
+                <h4>Comprehensive Digital Library</h4>
+                <span>Academic Literature &amp; Media</span>
+              </div>
+            </div>
+            <p>Curated collection of academic literature, reference volumes, research journals, multimedia archives, and quiet reading halls.</p>
+          </div>
+          <div class="facility-footer-strip">
+            <span class="facility-chip chip-emerald">15,000+ Volumes</span>
+            <span style="font-size:11px; color:#047857; font-weight:700;">Digital Archives</span>
+          </div>
+        </div>
+
+        <!-- Facility 3: Arts, Culture & Heritage -->
+        <div class="facility-box">
+          <div>
+            <div class="facility-top">
+              <div class="facility-icon-wrap purple">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+                  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+                  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+                  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"></path>
+                </svg>
+              </div>
+              <div class="facility-title-wrap">
+                <h4>Arts, Culture &amp; Heritage</h4>
+                <span>Creative Expression Studio</span>
+              </div>
+            </div>
+            <p>Vibrant cultural pavilions for classical music, visual arts, theatrical expression, performing arts, and community service.</p>
+          </div>
+          <div class="facility-footer-strip">
+            <span class="facility-chip chip-purple">Fine Arts &amp; Theatre</span>
+            <span style="font-size:11px; color:#6b21a8; font-weight:700;">Cultural Studio</span>
+          </div>
+        </div>
+
+        <!-- Facility 4: Athletics & Sports Complex -->
+        <div class="facility-box">
+          <div>
+            <div class="facility-top">
+              <div class="facility-icon-wrap amber">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                  <path d="M4 22h16"></path>
+                  <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-2.34"></path>
+                  <path d="M14 14.66V17c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-2.34"></path>
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"></path>
+                </svg>
+              </div>
+              <div class="facility-title-wrap">
+                <h4>Athletics &amp; Sports Complex</h4>
+                <span>Fitness &amp; Team Sports</span>
+              </div>
+            </div>
+            <p>Spacious sports grounds, indoor athletic arenas, yoga disciplines, track &amp; field, and competitive team leagues.</p>
+          </div>
+          <div class="facility-footer-strip">
+            <span class="facility-chip chip-amber">Multi-Sport Ground</span>
+            <span style="font-size:11px; color:#b45309; font-weight:700;">Indoor &amp; Outdoor</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Executive Institutional Accreditation & Campus Meta Strip -->
+      <div class="institutional-overview-box">
+        <div class="overview-header">
+          <div class="overview-header-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span>Institutional Accreditation &amp; Academic Parameters</span>
+          </div>
+          <span class="overview-status-pill">
+            <span class="status-pulse-dot"></span>
+            Accredited Institution
+          </span>
+        </div>
+
+        <div class="overview-grid">
+          <div class="overview-col">
+            <div class="overview-col-icon blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+              </svg>
+            </div>
+            <div class="overview-col-info">
+              <span class="col-label">Affiliation &amp; Curriculum</span>
+              <span class="col-val">Recognized Board Curriculum</span>
+            </div>
+          </div>
+
+          <div class="overview-col">
+            <div class="overview-col-icon green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div class="overview-col-info">
+              <span class="col-label">Academic Session</span>
+              <span class="col-val">2026 – 2027 Active</span>
+            </div>
+          </div>
+
+          <div class="overview-col">
+            <div class="overview-col-icon amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div class="overview-col-info">
+              <span class="col-label">Instructional Hours</span>
+              <span class="col-val">Mon – Sat: 07:30 AM – 02:00 PM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grade Selection Section ("below a grade selection options after a user grade select then open the dashboard and all") -->
+    <section class="welcome-grade-section">
+      <div class="grade-section-header">
+        <h2>Select Grade to Open Dashboard</h2>
+        <p>Choose your classroom division below to launch live camera roll call, student directory, and attendance tracking.</p>
+      </div>
+
+      <div class="grade-cards-grid">
+        {% for opt in grade_options %}
+          <a href="{{ url_for('dashboard', grade=opt.id) }}" class="grade-select-card">
+            <div class="grade-card-top">
+              <div class="grade-icon-bubble">
+                {% if opt.id == 'All' %}
+                  🏫
+                {% elif opt.id == 'Grade 8' %}
+                  08
+                {% elif opt.id == 'Grade 9' %}
+                  09
+                {% elif opt.id == 'Grade 10' %}
+                  10
+                {% elif opt.id == 'Grade 11' %}
+                  11
+                {% elif opt.id == 'Grade 12' %}
+                  12
+                {% else %}
+                  🎓
+                {% endif %}
+              </div>
+              <span class="grade-count-tag">{{ opt.count }} Students</span>
+            </div>
+
+            <div class="grade-card-body">
+              <h3>{{ opt.name }}</h3>
+              <p>{{ opt.desc }}</p>
+            </div>
+
+            <div class="grade-card-footer">
+              <span style="font-size:11px; font-weight:600; color:var(--text-light);">Automated Attendance</span>
+              <span class="enter-btn-text">
+                Enter Class
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Live Clock updater
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      const clockEl = document.getElementById('current-clock-display');
+      if (clockEl) {
+        clockEl.innerText = now.toLocaleString('en-US', options);
+      }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+</body>
+</html>

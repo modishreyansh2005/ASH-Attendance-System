@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Register Student | Ash Education{% endblock %}
+{% block page_heading %}Student Enrollment & Facial Registration{% endblock %}
+{% block page_subheading %}Register new student details and capture training photos for automated camera attendance{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px; margin: 0 auto;">
+  <form id="student-reg-form" action="{{ url_for('register_student') }}" method="POST" enctype="multipart/form-data">
+    <div style="display:grid; grid-template-columns: 1.15fr 1fr; gap:28px;">
+      
+      <!-- Left Column: Student Academic & Personal Information -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Student Information
+          </div>
+          <span style="font-size:12px; color:var(--text-muted);">Required Fields (*)</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="student_id">Student ID *</label>
+            <input type="text" id="student_id" name="student_id" class="form-control" value="{{ suggested_id }}" required placeholder="e.g. STU-1007">
+            <span style="font-size:11px; color:var(--text-light); margin-top:3px; display:block;">Unique identification code</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="roll_no">Class Roll Number *</label>
+            <input type="text" id="roll_no" name="roll_no" class="form-control" value="{{ suggested_roll or '' }}" required placeholder="e.g. 1">
+            <span style="font-size:11px; color:var(--text-light); margin-top:3px; display:block;">Sequential class roll number</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="full_name">Full Legal Name *</label>
+          <input type="text" id="full_name" name="full_name" class="form-control" required placeholder="e.g. Alex Henderson">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="grade">Grade / Class *</label>
+            <select id="grade" name="grade" class="form-control" required>
+              <option value="">Select Grade</option>
+              <option value="Grade 8">Grade 8</option>
+              <option value="Grade 9">Grade 9</option>
+              <option value="Grade 10" selected>Grade 10</option>
+              <option value="Grade 11">Grade 11</option>
+              <option value="Grade 12">Grade 12</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="section">Section *</label>
+            <select id="section" name="section" class="form-control" required>
+              <option value="A" selected>Section A</option>
+              <option value="B">Section B</option>
+              <option value="C">Section C</option>
+              <option value="D">Section D</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="gender">Gender</label>
+            <select id="gender" name="gender" class="form-control">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label" for="category">Category</label>
+            <select id="category" name="category" class="form-control">
+              <option value="General" selected>General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC/ST">SC/ST</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="dob">Date of Birth (DOB)</label>
+            <input type="date" id="dob" name="dob" class="form-control">
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border-light); margin:18px 0;">
+
+        <div class="card-title" style="font-size:14px; margin-bottom:14px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          Parent / Guardian Contact
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="guardian_name">Guardian Name</label>
+            <input type="text" id="guardian_name" name="guardian_name" class="form-control" placeholder="e.g. Robert Henderson">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="parent_phone">Parent's Number</label>
+            <input type="tel" id="parent_phone" name="parent_phone" class="form-control" placeholder="+1 (555) 012-3456">
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Camera Face Capture & Photo Enrollment -->
+      <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="card-header" style="margin-bottom:12px;">
+            <div class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              Facial Biometric Enrollment
+            </div>
+          </div>
+
+          <!-- Method Selection Tabs -->
+          <div style="display:flex; background:var(--bg-main); padding:4px; border-radius:var(--radius-md); margin-bottom:18px; border:1px solid var(--border-color);">
+            <button type="button" id="tab-webcam" class="btn btn-sm" style="flex:1; background:white; color:var(--primary); box-shadow:var(--shadow-sm); font-weight:700;">
+              Live Webcam Capture
+            </button>
+            <button type="button" id="tab-upload" class="btn btn-sm" style="flex:1; background:transparent; color:var(--text-muted); font-weight:600;">
+              Upload Photo File
+            </button>
+          </div>
+
+          <!-- Mode 1: Live Webcam Viewport -->
+          <div id="section-webcam">
+            <div style="position:relative; width:100%; height:240px; background:#0f172a; border-radius:var(--radius-md); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+              <video id="reg-webcam" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+              <canvas id="reg-canvas" style="display:none;"></canvas>
+
+              <!-- Subtle Face Oval Guide -->
+              <div style="position:absolute; width:140px; height:180px; border:2px dashed rgba(255,255,255,0.7); border-radius:50%; pointer-events:none; box-shadow:0 0 0 9999px rgba(15,23,42,0.35);"></div>
+
+              <div id="camera-loading-overlay" style="position:absolute; inset:0; background:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); z-index:10;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary); margin-bottom:8px;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span style="font-size:12px; font-weight:600;">Connecting Webcam...</span>
+              </div>
+            </div>
+
+            <!-- Auto Capture Actions -->
+            <div style="margin-top:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span id="capture-status-text" style="font-size:12px; font-weight:600; color:var(--text-main);">0 of 5 Face Samples Captured</span>
+                <span id="capture-percent" style="font-size:12px; font-weight:700; color:var(--primary);">0%</span>
+              </div>
+              <div class="capture-progress">
+                <div id="capture-progress-bar" class="capture-progress-bar"></div>
+              </div>
+
+              <div style="display:flex; gap:10px; margin-top:14px;">
+                <button type="button" id="btn-start-capture" class="btn btn-primary btn-sm" style="flex:1;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon>
+                  </svg>
+                  <span>Auto-Capture 5 Samples</span>
+                </button>
+                <button type="button" id="btn-snap-single" class="btn btn-secondary btn-sm" title="Take a single snapshot">
+                  Snap 1
+                </button>
+              </div>
+
+              <!-- Thumbnails Gallery -->
+              <div class="snap-gallery" id="snap-gallery">
+                <!-- Dynamic thumbnails appended here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Mode 2: File Upload (Hidden by default) -->
+          <div id="section-upload" style="display:none;">
+            <div id="upload-dropzone" style="border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:28px 18px; text-align:center; background:#fafafa; cursor:pointer; transition:all 0.2s;" onclick="document.getElementById('photo_file').click();">
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary); margin-bottom:8px;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <div style="font-size:13px; font-weight:700; color:var(--text-main);">Click to Select Face Photograph</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Supports JPG, PNG (Passport style or front portrait)</div>
+              <input type="file" id="photo_file" name="photo_file" accept="image/*" style="display:none;" onchange="previewUpload(event)">
+            </div>
+
+            <!-- Upload Biometric Processing Spinner -->
+            <div id="upload-loading-state" style="display:none; text-align:center; padding:24px 16px; background:#f8fafc; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-top:12px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon" style="color:var(--primary); animation:spin 1s linear infinite; margin-bottom:8px;">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"></path>
+              </svg>
+              <div style="font-size:13px; font-weight:700; color:var(--text-main);">Analyzing Facial Biometrics...</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">Detecting face, checking lighting clarity, and aligning features</div>
+            </div>
+
+            <!-- Upload Biometric Success Card -->
+            <div id="upload-verified-card" style="display:none; margin-top:12px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:var(--radius-md); padding:14px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;"></span>
+                  <span id="upload-result-title" style="font-size:12px; font-weight:700; color:#15803d;">Face Detected & Validated ✓</span>
+                </div>
+                <span id="upload-quality-badge" class="badge badge-present" style="font-size:11px;">Quality: 95%</span>
+              </div>
+              
+              <div style="display:flex; gap:12px; align-items:center;">
+                <div style="position:relative; width:130px; height:120px; border-radius:var(--radius-sm); overflow:hidden; border:1px solid #86efac; background:#fff; flex-shrink:0;">
+                  <img id="upload-annotated-img" style="width:100%; height:100%; object-fit:contain;" alt="Detection Preview">
+                </div>
+                <div style="flex:1; font-size:12px;">
+                  <div style="font-weight:700; color:var(--text-main); margin-bottom:2px;" id="upload-result-headline">Face Verified for Biometrics</div>
+                  <div id="upload-result-desc" style="color:var(--text-muted); font-size:11px; line-height:1.4; margin-bottom:8px;">Ready to train high-accuracy OpenCV attendance model.</div>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('photo_file').click();" style="padding:3px 10px; font-size:11px;">
+                    Change Photo
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload Biometric Error Card -->
+            <div id="upload-error-card" style="display:none; margin-top:12px; border:1px solid #fecaca; background:#fef2f2; border-radius:var(--radius-md); padding:14px;">
+              <div style="display:flex; align-items:flex-start; gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div style="flex:1;">
+                  <div style="font-size:12px; font-weight:700; color:#b91c1c;" id="upload-error-title">No Clear Face Detected</div>
+                  <div id="upload-error-desc" style="font-size:11px; color:#7f1d1d; margin-top:3px; line-height:1.4;">
+                    Please select a front-facing portrait or passport photo with good lighting and no sunglasses or masks.
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('photo_file').click();" style="margin-top:8px; padding:3px 10px; font-size:11px;">
+                    Choose Another Photo
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hidden input holding JSON array of base64 frames -->
+          <input type="hidden" id="captured_faces_json" name="captured_faces_json" value="">
+        </div>
+
+        <!-- Submit & Train Button -->
+        <div style="margin-top:24px; border-top:1px solid var(--border-light); padding-top:18px;">
+          <button type="submit" id="btn-submit-registration" class="btn btn-primary btn-lg" style="width:100%;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Save Student & Train OpenCV Model</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+{% endblock %}

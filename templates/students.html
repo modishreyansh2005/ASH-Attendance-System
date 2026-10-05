@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}Students Directory | Ash Education{% endblock %}
+{% block page_heading %}Registered Students Directory{% endblock %}
+{% block page_subheading %}Manage student profiles, biometrics records, and enrolled classes{% endblock %}
+
+{% block content %}
+<!-- Search and Filter Bar -->
+<div class="card" style="margin-bottom:24px; padding:18px 24px;">
+  <form method="GET" action="{{ url_for('students_list') }}" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <!-- Search Input -->
+    <div style="position:relative; flex:1; min-width:260px; display:flex; gap:10px;">
+      <div style="position:relative; flex:1;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-light);">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Search by student name, ID or roll number..." style="padding-left:38px;">
+      </div>
+      {% if search %}
+        <a href="{{ url_for('students_list') }}" class="btn btn-secondary btn-sm" style="display:flex; align-items:center;">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Students Roster Table -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+        </svg>
+        Enrolled Students ({{ students|length }})
+      </div>
+      <div class="card-subtitle">Active students registered in facial recognition database</div>
+    </div>
+  </div>
+
+  {% if students and students|length > 0 %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">#</th>
+            <th>Student Profile</th>
+            <th>ID Code</th>
+            <th>Class & Section</th>
+            <th>Roll No</th>
+            <th>Gender</th>
+            <th>Category</th>
+            <th>Guardian & Contact</th>
+            <th>Biometric Face AI</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+            <tr>
+              <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:12px;">{{ loop.index }}</td>
+              <td>
+                <div class="student-cell">
+                  <img src="{{ s.photo_path or url_for('static', filename='img/avatar_default.png') }}" class="student-avatar" alt="{{ s.full_name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ s.full_name }}&background=E0E7FF&color=4338CA'">
+                  <div class="student-meta">
+                    <div class="name">{{ s.full_name }}</div>
+                    <div class="sub">Joined: {{ s.created_at[:10] if s.created_at else 'Recent' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span style="font-family:monospace; font-weight:700; color:var(--primary);">{{ s.student_id }}</span></td>
+              <td><strong>{{ s.grade }}</strong> - Section {{ s.section }}</td>
+              <td><span style="font-weight:600;">{{ s.roll_no }}</span></td>
+              <td>{{ s.gender or 'N/A' }}</td>
+              <td>
+                <span class="badge" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; font-weight:600; font-size:11px;">
+                  {{ s.category or 'General' }}
+                </span>
+                {% if s.dob %}
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">🎂 {{ s.dob }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight:600; color:var(--text-main);">{{ s.guardian_name or 'N/A' }}</div>
+                <div style="font-size:12px; color:var(--primary); font-weight:600; margin-top:2px;">
+                  📞 {{ s.parent_phone or s.guardian_phone or 'No phone' }}
+                </div>
+              </td>
+              <td>
+                {% if s.biometric_enrolled or (s.samples_count and s.samples_count > 0) %}
+                  <span class="badge badge-present" style="font-size:11px;">
+                    ✓ Enrolled
+                  </span>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                    {{ s.samples_count or 1 }} Sample{{ 's' if (s.samples_count or 1) != 1 else '' }}
+                  </div>
+                {% else %}
+                  <span class="badge badge-late" style="font-size:11px;">
+                    Pending
+                  </span>
+                {% endif %}
+              </td>
+              <td style="text-align:right;">
+                <div style="display:inline-flex; gap:8px;">
+                  <!-- View Profile Button -->
+                  <button type="button" class="btn btn-secondary btn-sm"
+                    data-id="{{ s.student_id }}"
+                    data-name="{{ s.full_name }}"
+                    data-grade="{{ s.grade }}"
+                    data-section="{{ s.section }}"
+                    data-roll="{{ s.roll_no }}"
+                    data-gender="{{ s.gender or '' }}"
+                    data-guardian="{{ s.guardian_name or '' }}"
+                    data-phone="{{ s.parent_phone or s.guardian_phone or '' }}"
+                    data-photo="{{ s.photo_path or '' }}"
+                    data-category="{{ s.category or 'General' }}"
+                    data-dob="{{ s.dob or '' }}"
+                    onclick="openProfileFromButton(this, false)"
+                    style="display:inline-flex; align-items:center; gap:5px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Profile
+                  </button>
+
+                  <!-- Edit Profile Button -->
+                  <button type="button" class="btn btn-primary btn-sm"
+                    data-id="{{ s.student_id }}"
+                    data-name="{{ s.full_name }}"
+                    data-grade="{{ s.grade }}"
+                    data-section="{{ s.section }}"
+                    data-roll="{{ s.roll_no }}"
+                    data-gender="{{ s.gender or '' }}"
+                    data-guardian="{{ s.guardian_name or '' }}"
+                    data-phone="{{ s.parent_phone or s.guardian_phone or '' }}"
+                    data-photo="{{ s.photo_path or '' }}"
+                    data-category="{{ s.category or 'General' }}"
+                    data-dob="{{ s.dob or '' }}"
+                    onclick="openProfileFromButton(this, true)"
+                    style="display:inline-flex; align-items:center; gap:5px; background:var(--primary);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Edit
+                  </button>
+
+                  <form method="POST" action="{{ url_for('remove_student', student_id=s.student_id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to remove this student and their facial recognition profile?');">
+                    <button type="submit" class="btn btn-danger btn-sm" title="Delete Student" style="display:inline-flex; align-items:center; gap:5px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align:center; padding:48px 20px; color:var(--text-muted);">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-light); margin-bottom:12px;">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <h4 style="font-size:16px; font-weight:700; color:var(--text-main); margin-bottom:4px;">No Students Found</h4>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Try adjusting your search criteria or register a new student.</p>
+      <a href="{{ url_for('register_student') }}" class="btn btn-primary">Enroll New Student</a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Student Profile Modal (View & Edit Modes) -->
+<div id="profile-modal" class="modal-overlay" onclick="if(event.target === this) closeModal();">
+  <div class="modal-content" style="max-width: 580px;">
+    <!-- Modal Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <h3 id="modal-heading-title" style="font-size:18px; font-weight:800; color:var(--text-main); margin:0;">Student Profile Card</h3>
+      <button type="button" onclick="closeModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); line-height:1;">&times;</button>
+    </div>
+
+    <!-- VIEW MODE -->
+    <div id="modal-view-mode">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding:16px; background:#f8fafc; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+        <div style="display:flex; gap:18px; align-items:center;">
+          <img id="m-photo" src="" style="width:72px; height:72px; border-radius:var(--radius-md); object-fit:cover; border:2px solid white; box-shadow:var(--shadow-sm);" alt="Avatar">
+          <div>
+            <h4 id="m-name" style="font-size:17px; font-weight:700; color:var(--text-main); margin:0;">--</h4>
+            <div id="m-id" style="font-family:monospace; font-weight:600; color:var(--primary); font-size:12px; margin-top:2px;">--</div>
+            <span class="badge badge-present" style="margin-top:6px; font-size:11px;">Active Student</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="switchToEditMode()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:var(--primary); border-color:#cbd5e1; background:white;" title="Edit this student profile">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          Edit Profile
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px; margin-bottom:20px;">
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Class & Section</span>
+          <strong id="m-class" style="color:var(--text-main);">--</strong>
+        </div>
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Roll Number</span>
+          <strong id="m-roll" style="color:var(--text-main);">--</strong>
+        </div>
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Guardian Name</span>
+          <strong id="m-guardian" style="color:var(--text-main);">--</strong>
+        </div>
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Parent's Number</span>
+          <strong id="m-parent-phone" style="color:var(--primary); font-weight:700;">--</strong>
+        </div>
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Category</span>
+          <strong id="m-category" style="color:var(--text-main);">--</strong>
+        </div>
+        <div style="padding:10px 14px; background:#fafafa; border-radius:var(--radius-sm); border:1px solid var(--border-light);">
+          <span style="color:var(--text-muted); display:block; font-size:11px;">Date of Birth (DOB)</span>
+          <strong id="m-dob" style="color:var(--text-main);">--</strong>
+        </div>
+        <!-- Biometric Status (Section 9) -->
+        <div style="padding:10px 14px; background:#f0fdf4; border-radius:var(--radius-sm); border:1px solid #bbf7d0; grid-column: span 2; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#166534; display:block; font-size:11px; font-weight:700;">BIOMETRIC PROFILE</span>
+            <strong style="color:#15803d; font-size:13px;">✓ Face Enrolled & Active</strong>
+          </div>
+          <div style="text-align:right;">
+            <span class="badge badge-present" style="font-size:11px;">Model: ✓ Trained</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <form id="m-delete-form" method="POST" action="" onsubmit="return confirm('Are you sure you want to remove this student and their facial recognition profile?');">
+          <button type="submit" class="btn btn-danger btn-sm" style="display:inline-flex; align-items:center; gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            Delete Student
+          </button>
+        </form>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()">Close</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="switchToEditMode()" style="display:inline-flex; align-items:center; gap:5px; background:#4f46e5; font-weight:700; border:none; box-shadow:0 2px 6px rgba(79,70,229,0.25);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Edit Profile
+          </button>
+          <a href="{{ url_for('camera') }}" class="btn btn-primary btn-sm">Scan at Camera</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT MODE -->
+    <div id="modal-edit-mode" style="display:none;">
+      <form id="edit-profile-form" method="POST" action="" enctype="multipart/form-data">
+        <!-- Photo and Full Name Header -->
+        <div style="display:flex; gap:16px; align-items:center; margin-bottom:18px; padding:14px; background:#f8fafc; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <div style="text-align:center;">
+            <div style="position:relative; display:inline-block; cursor:pointer;" onclick="document.getElementById('edit-photo-input').click();" title="Click to upload new photo">
+              <img id="edit-photo-preview" src="" style="width:68px; height:68px; border-radius:var(--radius-md); object-fit:cover; border:2px solid white; box-shadow:var(--shadow-sm); display:block;" alt="Avatar">
+              <span style="position:absolute; bottom:2px; right:2px; background:rgba(0,0,0,0.6); color:white; border-radius:4px; padding:2px 4px; font-size:10px;">📷</span>
+            </div>
+            <label for="edit-photo-input" style="font-size:11px; color:var(--primary); font-weight:700; cursor:pointer; text-decoration:underline; display:block; margin-top:3px;">Change</label>
+            <input type="file" id="edit-photo-input" name="photo_file" accept="image/*" style="display:none;" onchange="previewEditPhoto(this)">
+          </div>
+          <div style="flex:1;">
+            <label class="form-label" style="font-size:11.5px; margin-bottom:4px;" for="edit-name">Student Full Name *</label>
+            <input type="text" id="edit-name" name="full_name" class="form-control" style="font-weight:700; font-size:14px;" required>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+              <span style="font-size:11px; color:var(--text-muted);">Student ID:</span>
+              <span id="edit-id-badge" style="font-family:monospace; font-weight:700; font-size:12px; color:var(--primary);">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editable Inputs Grid -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-grade" style="font-size:11.5px;">Grade / Class *</label>
+            <select id="edit-grade" name="grade" class="form-control" style="font-size:13px;" required>
+              <option value="Grade 8">Grade 8</option>
+              <option value="Grade 9">Grade 9</option>
+              <option value="Grade 10">Grade 10</option>
+              <option value="Grade 11">Grade 11</option>
+              <option value="Grade 12">Grade 12</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-section" style="font-size:11.5px;">Section *</label>
+            <input type="text" id="edit-section" name="section" class="form-control" style="font-size:13px;" placeholder="e.g. A" required>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-roll" style="font-size:11.5px;">Roll Number *</label>
+            <input type="text" id="edit-roll" name="roll_no" class="form-control" style="font-size:13px;" required>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-gender" style="font-size:11.5px;">Gender</label>
+            <select id="edit-gender" name="gender" class="form-control" style="font-size:13px;">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-guardian" style="font-size:11.5px;">Guardian Name</label>
+            <input type="text" id="edit-guardian" name="guardian_name" class="form-control" style="font-size:13px;" placeholder="e.g. Robert Henderson">
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-parent-phone" style="font-size:11.5px;">Parent's Number</label>
+            <input type="tel" id="edit-parent-phone" name="parent_phone" class="form-control" style="font-size:13px;" placeholder="+1 (555) 012-3456">
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-category" style="font-size:11.5px;">Category</label>
+            <select id="edit-category" name="category" class="form-control" style="font-size:13px;">
+              <option value="General">General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC/ST">SC/ST</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="edit-dob" style="font-size:11.5px;">Date of Birth (DOB)</label>
+            <input type="date" id="edit-dob" name="dob" class="form-control" style="font-size:13px;">
+          </div>
+        </div>
+
+        <!-- Edit Form Buttons -->
+        <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px; padding-top:14px; border-top:1px solid var(--border-light);">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="switchToViewMode()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px; font-weight:700;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Save Profile</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentStudentData = {};
+
+  function openProfileFromButton(btn, startInEditMode) {
+    const d = btn.dataset;
+    showProfileModal(
+      d.id || '',
+      d.name || '',
+      d.grade || '',
+      d.section || '',
+      d.roll || '',
+      d.gender || '',
+      d.guardian || '',
+      d.phone || '',
+      d.photo || '',
+      d.category || 'General',
+      d.dob || '',
+      startInEditMode
+    );
+  }
+
+  function showProfileModal(id, name, grade, section, roll, gender, guardian, parentPhone, photo, category = 'General', dob = '', startInEditMode = false) {
+    currentStudentData = { id, name, grade, section, roll, gender, guardian, parentPhone, photo, category, dob };
+
+    // Populate View Mode
+    document.getElementById('m-id').innerText = id;
+    document.getElementById('m-name').innerText = name;
+    document.getElementById('m-class').innerText = `${grade} - Section ${section}`;
+    document.getElementById('m-roll').innerText = roll;
+    document.getElementById('m-guardian').innerText = guardian || 'Not specified';
+    document.getElementById('m-parent-phone').innerText = parentPhone || 'Not specified';
+    document.getElementById('m-category').innerText = category || 'General';
+    document.getElementById('m-dob').innerText = dob || 'Not specified';
+    document.getElementById('m-photo').src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=E0E7FF&color=4338CA`;
+
+    const deleteForm = document.getElementById('m-delete-form');
+    if (deleteForm) {
+      deleteForm.action = `/students/delete/${encodeURIComponent(id)}`;
+    }
+
+    // Populate Edit Mode Form
+    const editForm = document.getElementById('edit-profile-form');
+    if (editForm) {
+      editForm.action = `/students/edit/${encodeURIComponent(id)}`;
+    }
+    document.getElementById('edit-id-badge').innerText = id;
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-grade').value = grade;
+    document.getElementById('edit-section').value = section;
+    document.getElementById('edit-roll').value = roll;
+    document.getElementById('edit-gender').value = gender || 'Other';
+    document.getElementById('edit-guardian').value = guardian || '';
+    document.getElementById('edit-parent-phone').value = parentPhone || '';
+    document.getElementById('edit-category').value = category || 'General';
+    document.getElementById('edit-dob').value = dob || '';
+    document.getElementById('edit-photo-preview').src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=E0E7FF&color=4338CA`;
+
+    if (startInEditMode) {
+      switchToEditMode();
+    } else {
+      switchToViewMode();
+    }
+
+    document.getElementById('profile-modal').style.display = 'flex';
+  }
+
+  function switchToEditMode() {
+    document.getElementById('modal-view-mode').style.display = 'none';
+    document.getElementById('modal-edit-mode').style.display = 'block';
+    document.getElementById('modal-heading-title').innerText = 'Edit Student Profile';
+  }
+
+  function switchToViewMode() {
+    document.getElementById('modal-view-mode').style.display = 'block';
+    document.getElementById('modal-edit-mode').style.display = 'none';
+    document.getElementById('modal-heading-title').innerText = 'Student Profile Card';
+  }
+
+  function previewEditPhoto(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('edit-photo-preview').src = e.target.result;
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('profile-modal').style.display = 'none';
+    switchToViewMode();
+  }
+</script>
+{% endblock %}

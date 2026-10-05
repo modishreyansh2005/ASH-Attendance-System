@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Ash Education Smart Attendance System{% endblock %}</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-container">
+    <!-- Backdrop for Mobile Drawer -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" title="Click to close navigation"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="{{ url_for('welcome') }}" class="brand-link">
+          <div class="brand-icon">
+            <!-- Graduation Cap / Camera Icon -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>Ash Education</h1>
+            <p>Smart School</p>
+          </div>
+        </a>
+        <button type="button" id="sidebar-close-btn" class="btn-sidebar-close" aria-label="Close navigation drawer" title="Close drawer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <span class="nav-section-title">Main Portal</span>
+        <a href="{{ url_for('welcome') }}" class="nav-link {% if request.path == '/' %}active{% endif %}" title="Welcome Portal" data-tooltip="Welcome Portal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>Welcome Portal</span>
+        </a>
+
+        <a href="{{ url_for('dashboard', grade=active_grade) }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" title="Dashboard" data-tooltip="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          </svg>
+          <span>Dashboard</span>
+        </a>
+
+
+        <span class="nav-section-title">Management</span>
+        <a href="{{ url_for('register_student') }}" class="nav-link {% if request.path == '/register' %}active{% endif %}" title="Enroll New Student" data-tooltip="Enroll New Student">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <line x1="19" y1="8" x2="19" y2="14"></line>
+            <line x1="22" y1="11" x2="16" y2="11"></line>
+          </svg>
+          <span>Enroll New Student</span>
+        </a>
+
+        <a href="{{ url_for('camera', grade=active_grade) }}" class="nav-link {% if request.path == '/camera' %}active{% endif %}" title="Live Camera Hub" data-tooltip="Live Camera Hub">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <span>Live Camera Hub</span>
+          <span class="live-badge">Live</span>
+        </a>
+
+        <a href="{{ url_for('students_list', grade=active_grade) }}" class="nav-link {% if request.path == '/students' %}active{% endif %}" title="Students Directory" data-tooltip="Students Directory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Students Directory</span>
+        </a>
+
+        <span class="nav-section-title">Records & Reports</span>
+        <a href="{{ url_for('attendance_logs', grade=active_grade) }}" class="nav-link {% if request.path == '/logs' %}active{% endif %}" title="Daily Register" data-tooltip="Daily Register">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span>Daily Register</span>
+        </a>
+
+        <a href="{{ url_for('exam_results_view', grade=active_grade) }}" class="nav-link {% if request.path.startswith('/results') %}active{% endif %}" title="Exam Results & Ranks" data-tooltip="Exam Results & Ranks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path>
+            <path d="M18 4H6v7a6 6 0 0 0 12 0V4z"></path>
+          </svg>
+          <span>Exam Results &amp; Ranks</span>
+          <span class="live-badge" style="background:#10b981; color:#fff; font-weight:700;">New</span>
+        </a>
+
+        <a href="{{ url_for('holidays_view') }}" class="nav-link {% if request.path == '/holidays' %}active{% endif %}" title="Monthly Holidays" data-tooltip="Monthly Holidays">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"></path>
+          </svg>
+          <span>Monthly Holidays</span>
+        </a>
+
+        <a href="{{ url_for('reports', grade=active_grade) }}" class="nav-link {% if request.path == '/reports' %}active{% endif %}" title="Analytics & Export" data-tooltip="Analytics & Export">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span>Analytics & Export</span>
+        </a>
+
+        <a href="{{ url_for('low_attendance_view', grade=active_grade) }}" class="nav-link {% if request.path == '/low-attendance' %}active{% endif %}" title="Low Attendance Alert" data-tooltip="Low Attendance Alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span>Low Attendance Alert</span>
+        </a>
+
+        <a href="{{ url_for('absent_alert', grade=active_grade) }}" class="nav-link {% if request.path == '/absent-alert' %}active{% endif %}" title="Daily Absent Alert" data-tooltip="Daily Absent Alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span>Absent Alert</span>
+        </a>
+
+      </nav>
+
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Top Navbar -->
+      <header class="top-navbar">
+        <div class="navbar-left">
+          <!-- Sidebar Hide / Show Toggle Button -->
+          <button type="button" id="sidebar-toggle-btn" class="btn-sidebar-toggle" title="Hide / Show Navigation Bar (Ctrl+B)" aria-label="Toggle navigation bar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          
+          <div class="page-info">
+            <h2>{% block page_heading %}School Attendance Console{% endblock %}</h2>
+            <p>{% block page_subheading %}Automated Camera Face Recognition & Attendance Tracking{% endblock %}</p>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          {% block top_actions %}{% endblock %}
+        </div>
+      </header>
+
+      <!-- Main Body -->
+      <main class="content-body">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                  <span>{{ message }}</span>
+                  <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-weight:bold; color:inherit; font-size:16px;">&times;</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Quick Navigation Bar (Active on screens <= 768px) -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
+    <a href="{{ url_for('dashboard', grade=active_grade) }}" class="mobile-nav-btn {% if request.path == '/dashboard' %}active{% endif %}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+      </svg>
+      <span>Dashboard</span>
+    </a>
+    <a href="{{ url_for('camera', grade=active_grade) }}" class="mobile-nav-btn {% if request.path == '/camera' %}active{% endif %}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+      <span>Live Cam</span>
+    </a>
+    <a href="{{ url_for('attendance_logs', grade=active_grade) }}" class="mobile-nav-btn {% if request.path == '/logs' %}active{% endif %}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+      </svg>
+      <span>Register</span>
+    </a>
+    <a href="{{ url_for('students_list', grade=active_grade) }}" class="mobile-nav-btn {% if request.path == '/students' %}active{% endif %}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+      </svg>
+      <span>Students</span>
+    </a>
+
+  </nav>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

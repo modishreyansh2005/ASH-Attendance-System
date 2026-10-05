@@ -1,0 +1,7 @@
+{
+  "html.validate.scripts": false,
+  "html.validate.styles": false,
+  "files.associations": {
+    "*.html": "html"
+  }
+}

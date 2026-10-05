@@ -1,0 +1,842 @@
+{% extends "base.html" %}
+
+{% block title %}Examination Results & Rank List - Ash Education{% endblock %}
+
+{% block page_heading %}Examination Results &amp; Student Rankings{% if selected_grade != 'All' %} &bull; <span style="color:var(--primary);">{{ selected_grade }}</span>{% endif %}{% endblock %}
+{% block page_subheading %}
+  {% if selected_grade != 'All' %}
+    Grade-specific evaluation mark sheet and student rankings for {{ selected_grade }}. Results from other classes are strictly hidden.
+  {% else %}
+    Upload Excel/PDF mark sheets, generate instant student lists, and track academic ranks across classes.
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="results-page-container">
+
+  <!-- ================= GRADE / CLASS DIVISION SELECTOR TABS ================= -->
+  <div style="background:var(--bg-surface); padding:12px 18px; border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-right:4px;">
+        🎓 Class Division:
+      </span>
+      <a href="{{ url_for('exam_results_view', grade='All', term=selected_term if selected_term != 'All' else None, subject=selected_subject if selected_subject != 'All' else None) }}" 
+         class="btn btn-sm {% if selected_grade == 'All' %}btn-primary{% else %}btn-secondary{% endif %}" 
+         style="font-size:12px; font-weight:700; border-radius:var(--radius-full); padding:5px 14px; text-decoration:none;">
+        🏛️ All Classes
+      </a>
+      {% for g in all_grades %}
+        <a href="{{ url_for('exam_results_view', grade=g, term=selected_term if selected_term != 'All' else None, subject=selected_subject if selected_subject != 'All' else None) }}" 
+           class="btn btn-sm {% if selected_grade == g %}btn-primary{% else %}btn-secondary{% endif %}" 
+           style="font-size:12px; font-weight:700; border-radius:var(--radius-full); padding:5px 14px; text-decoration:none;">
+          🎓 {{ g }}
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if selected_grade != 'All' %}
+      <div style="font-size:12px; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; padding:5px 14px; border-radius:var(--radius-full); font-weight:600; display:flex; align-items:center; gap:6px;">
+        <span style="width:8px; height:8px; border-radius:50%; background:#2563eb; display:inline-block;"></span>
+        <span>Isolated to <strong>{{ selected_grade }}</strong> (other grades excluded)</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ================= TOP KPI STATS SUMMARY ================= -->
+  <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    
+    <!-- Total Candidates -->
+    <div class="stat-card" style="background:var(--bg-surface); padding:20px; border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:16px;">
+      <div style="width:48px; height:48px; border-radius:12px; background:#eff6ff; color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Total Candidates</div>
+        <div style="font-size:26px; font-weight:800; color:var(--text-main); line-height:1.2; margin-top:2px;">{{ stats.total_students }}</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+          {% if selected_grade != 'All' %}Enrolled in {{ selected_grade }}{% else %}Campus-wide evaluated{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Class Topper (Rank 1) -->
+    <div class="stat-card" style="background:linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); padding:20px; border-radius:var(--radius-md); border:1px solid #fde68a; box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:16px;">
+      <div style="width:48px; height:48px; border-radius:12px; background:#f59e0b; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 10px rgba(245,158,11,0.3);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+          <path d="M4 22h16"></path>
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path>
+          <path d="M18 4H6v7a6 6 0 0 0 12 0V4z"></path>
+        </svg>
+      </div>
+      <div style="min-width:0;">
+        <div style="font-size:12px; font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.5px;">
+          🥇 {% if selected_grade != 'All' %}{{ selected_grade }} Topper{% else %}Class Topper{% endif %} (Rank 1)
+        </div>
+        {% if stats.total_students > 0 %}
+          <div style="font-size:20px; font-weight:800; color:#78350f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; margin-top:2px;">{{ stats.topper_name }}</div>
+          <div style="font-size:12px; font-weight:700; color:#d97706; margin-top:2px;">Score: {{ stats.topper_marks }} Marks</div>
+        {% else %}
+          <div style="font-size:16px; font-weight:700; color:#92400e; margin-top:2px;">Awaiting Upload</div>
+          <div style="font-size:11px; color:#b45309; margin-top:2px;">No results recorded yet</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Average Marks -->
+    <div class="stat-card" style="background:var(--bg-surface); padding:20px; border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:16px;">
+      <div style="width:48px; height:48px; border-radius:12px; background:#ecfdf5; color:var(--success); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Average Marks</div>
+        <div style="font-size:26px; font-weight:800; color:var(--text-main); line-height:1.2; margin-top:2px;">{{ stats.avg_marks if stats.total_students > 0 else '0.0' }}</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+          {% if stats.total_students > 0 %}
+            Highest: {{ stats.highest_marks }} | Lowest: {{ stats.lowest_marks }}
+          {% else %}
+            No mark data available
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Passing Rate -->
+    <div class="stat-card" style="background:var(--bg-surface); padding:20px; border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:16px;">
+      <div style="width:48px; height:48px; border-radius:12px; background:#f5f3ff; color:var(--accent-indigo); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Passing Rate</div>
+        <div style="font-size:26px; font-weight:800; color:var(--text-main); line-height:1.2; margin-top:2px;">{{ stats.pass_rate }}%</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Benchmark criteria (&ge; 35%)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= UPLOAD & IMPORT RESULT CARD ================= -->
+  <div class="card" style="background:var(--bg-surface); border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); margin-bottom:24px; overflow:hidden;">
+    <div style="padding:16px 20px; background:linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%); border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:32px; height:32px; border-radius:8px; background:var(--primary); color:#ffffff; display:flex; align-items:center; justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size:15px; font-weight:700; color:var(--text-main); margin:0;">Upload Excel Sheet or PDF Result Document</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin:0;">Upload .xlsx, .xls, .csv, or .pdf files to automatically generate HTML result lists with student ranks</p>
+        </div>
+      </div>
+
+      <!-- Quick Template Download -->
+      <a href="{{ url_for('download_sample_template', grade=selected_grade if selected_grade != 'All' else None) }}" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px; background:#ffffff; border-color:var(--border-color);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Download Sample Excel Template{% if selected_grade != 'All' %} ({{ selected_grade }}){% endif %}</span>
+      </a>
+    </div>
+
+    <div style="padding:20px;">
+      <form id="result-upload-form" action="{{ url_for('upload_exam_results') }}" method="POST" enctype="multipart/form-data">
+        
+        <!-- Drag and Drop Dropzone -->
+        <div id="drop-zone" class="upload-dropzone" style="border: 2px dashed #cbd5e1; border-radius: var(--radius-md); padding: 28px 20px; text-align: center; background: #fafafa; cursor: pointer; transition: all 0.2s ease;">
+          <input type="file" id="result-file-input" name="result_file" accept=".xlsx, .xls, .csv, .pdf" style="display: none;" required>
+          
+          <div id="drop-zone-idle">
+            <div style="width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 50%; background: #eff6ff; color: var(--primary); display: flex; align-items: center; justify-content: center;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+            </div>
+            <div style="font-weight: 700; font-size: 15px; color: var(--text-main);">Click or Drag &amp; Drop Excel or PDF Result File Here</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 6px 0 0 0;">
+              Supports <strong>.xlsx, .xls, .csv</strong> spreadsheets &amp; <strong>.pdf</strong> documents &bull; Auto-detects columns: <em>Student Name, Roll No, Subject, Marks</em>
+            </p>
+          </div>
+
+          <div id="drop-zone-selected" style="display: none;">
+            <div style="display: inline-flex; align-items: center; gap: 12px; background: #ffffff; padding: 10px 18px; border-radius: var(--radius-full); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+              <span id="file-type-icon" style="font-size: 20px;">📄</span>
+              <div style="text-align: left;">
+                <div id="file-name-display" style="font-weight: 700; font-size: 13px; color: var(--text-main);">filename.xlsx</div>
+                <div id="file-size-display" style="font-size: 11px; color: var(--text-muted);">0 KB</div>
+              </div>
+              <button type="button" id="btn-remove-file" style="margin-left: 8px; background: none; border: none; color: var(--danger); font-size: 18px; cursor: pointer; font-weight: bold;" title="Remove file">&times;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta configuration row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 18px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
+              Target Class / Grade
+            </label>
+            <select name="target_grade" class="form-control" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; background: #fff; font-weight:600;">
+              <option value="" {% if selected_grade == 'All' %}selected{% endif %}>Auto-Detect from File / Enrolled Class</option>
+              {% for g in all_grades %}
+                <option value="{{ g }}" {% if selected_grade == g %}selected{% endif %}>🎓 {{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
+              Exam Term / Examination Name
+            </label>
+            <input type="text" name="exam_term" list="terms-list" class="form-control" placeholder="e.g. Annual Examination 2026" value="{{ selected_term if selected_term != 'All' else 'Annual Examination 2026' }}" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px;">
+            <datalist id="terms-list">
+              <option value="Annual Examination 2026"></option>
+              <option value="Midterm Examination 2026"></option>
+              <option value="Unit Test 1"></option>
+              <option value="Unit Test 2"></option>
+              <option value="Pre-Board Examination"></option>
+              <option value="Semester 1 Final"></option>
+              {% for t in terms %}
+                <option value="{{ t }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
+              Default Subject (if not specified in sheet)
+            </label>
+            <input type="text" name="default_subject" list="subjects-list" class="form-control" placeholder="e.g. Mathematics" value="General" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px;">
+            <datalist id="subjects-list">
+              <option value="Mathematics"></option>
+              <option value="Science"></option>
+              <option value="English"></option>
+              <option value="Social Studies"></option>
+              <option value="Computer Science"></option>
+              <option value="Hindi"></option>
+              <option value="Physics"></option>
+              <option value="Chemistry"></option>
+              <option value="General"></option>
+              {% for s in subjects %}
+                <option value="{{ s }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+
+          <div style="display: flex; align-items: flex-end;">
+            <button type="submit" id="btn-submit-upload" class="btn btn-primary" style="width: 100%; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 14px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Convert &amp; Publish Results</span>
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= RESULTS LIST & TABLE SECTION ================= -->
+  <div class="card" style="background:var(--bg-surface); border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); overflow:hidden;">
+    
+    <!-- Filter & Toolbar Header -->
+    <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+      
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <!-- Search Input -->
+        <div style="position:relative; width:240px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:10px; top:11px; color:var(--text-muted);">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="result-search-input" placeholder="Search student or roll no..." value="{{ search }}" oninput="filterResultsTable()" style="width:100%; padding:8px 12px 8px 32px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px;">
+        </div>
+
+        <!-- Filter Grade Dropdown -->
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Class:</span>
+          <select id="filter-grade" onchange="applyFilters()" style="padding:8px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px; background:#fff; font-weight:600;">
+            <option value="All" {% if selected_grade == 'All' %}selected{% endif %}>All Classes</option>
+            {% for g in all_grades %}
+              <option value="{{ g }}" {% if selected_grade == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Filter Term Dropdown -->
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Term:</span>
+          <select id="filter-term" onchange="applyFilters()" style="padding:8px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px; background:#fff;">
+            <option value="All" {% if selected_term == 'All' %}selected{% endif %}>All Terms</option>
+            {% for t in terms %}
+              <option value="{{ t }}" {% if selected_term == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Filter Subject Dropdown -->
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Subject:</span>
+          <select id="filter-subject" onchange="applyFilters()" style="padding:8px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px; background:#fff;">
+            <option value="All" {% if selected_subject == 'All' %}selected{% endif %}>All Subjects</option>
+            {% for s in subjects %}
+              <option value="{{ s }}" {% if selected_subject == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Sort By Dropdown -->
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Sort:</span>
+          <select id="sort-select" onchange="applyFilters()" style="padding:8px 10px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:13px; background:#fff;">
+            <option value="rank" {% if sort_by == 'rank' %}selected{% endif %}>🏆 Rank (1st to Last)</option>
+            <option value="roll" {% if sort_by == 'roll' %}selected{% endif %}>🔢 Roll No (Ascending)</option>
+            <option value="name" {% if sort_by == 'name' %}selected{% endif %}>🔤 Student Name (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Action Tools -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <!-- Export CSV -->
+        <a href="{{ url_for('export_results_csv', grade=selected_grade, term=selected_term, subject=selected_subject, search=search, sort=sort_by) }}" class="btn btn-secondary btn-sm" title="Export current results as CSV" style="display:inline-flex; align-items:center; gap:5px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export CSV
+        </a>
+
+        <!-- Print Results -->
+        <button type="button" onclick="window.print()" class="btn btn-secondary btn-sm" title="Print this Result Sheet" style="display:inline-flex; align-items:center; gap:5px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print Sheet
+        </button>
+
+        <!-- Clear Results -->
+        {% if results %}
+        <form action="{{ url_for('clear_results') }}" method="POST" onsubmit='return confirm("Are you sure you want to clear these result records for {{ selected_grade if selected_grade != "All" else "all classes" }}? This cannot be undone.");' style="display:inline;">
+          <input type="hidden" name="grade" value="{{ selected_grade }}">
+          <input type="hidden" name="term" value="{{ selected_term }}">
+          <input type="hidden" name="subject" value="{{ selected_subject }}">
+          <button type="submit" class="btn btn-danger btn-sm" title="Clear all currently filtered results" style="display:inline-flex; align-items:center; gap:5px; background:var(--danger-bg); color:var(--danger-text); border:1px solid var(--danger-border);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Clear
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Results HTML Table List -->
+    <!-- STRICT ORDER: 1. Student Name | 2. Roll No | 3. Subject | 4. Marks | 5. Rank -->
+    <div class="table-container" style="overflow-x:auto;">
+      <table id="results-data-table" class="data-table" style="width:100%; border-collapse:collapse; text-align:left;">
+        <thead>
+          <tr style="background:#f8fafc; border-bottom:2px solid var(--border-color); color:var(--text-muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+            <th style="padding:14px 18px; min-width:240px;">1. Student Name</th>
+            <th style="padding:14px 18px; width:130px;">2. Roll No</th>
+            <th style="padding:14px 18px; min-width:160px;">3. Subject</th>
+            <th style="padding:14px 18px; width:170px;">4. Marks</th>
+            <th style="padding:14px 18px; width:140px;">5. Rank</th>
+            <th class="no-print" style="padding:14px 18px; width:90px; text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="results-table-body">
+          {% if results %}
+            {% for r in results %}
+              {% set pct = (r.marks_obtained / (r.max_marks or 100.0) * 100) if r.max_marks else 0 %}
+              {% set item_grade = r.class_grade or r.student_grade %}
+              {% set tier = 'high' if pct >= 80 else ('mid' if pct >= 60 else ('low' if pct >= 35 else 'danger')) %}
+              <tr class="result-row" data-name="{{ r.student_name|lower }}" data-roll="{{ r.roll_no|lower }}" data-subject="{{ r.subject|lower }}" data-grade="{{ (item_grade or '')|lower }}" style="border-bottom:1px solid var(--border-color); transition:background 0.15s ease;">
+                
+                <!-- 1. STUDENT NAME -->
+                <td style="padding:14px 18px;">
+                  <div class="student-cell" style="display:flex; align-items:center; gap:12px;">
+                    <img src="{{ r.student_photo or url_for('static', filename='img/avatar_default.png') }}" 
+                         class="student-avatar" 
+                         alt="{{ r.student_name }}" 
+                         style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0;"
+                         onerror="this.src='https://ui-avatars.com/api/?name={{ r.student_name|urlencode }}&background=E0E7FF&color=4338CA&bold=true'">
+                    <div>
+                      <div class="student-title-name" style="font-weight:700; font-size:14px; color:var(--text-main);">
+                        {{ r.student_name }}
+                      </div>
+                      <div style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:2px; flex-wrap:wrap;">
+                        {% if r.student_id %}
+                          <span style="font-family:monospace; background:#eff6ff; color:var(--primary); padding:1px 6px; border-radius:4px; font-weight:600;">{{ r.student_id }}</span>
+                        {% endif %}
+                        {% if item_grade %}
+                          <span style="display:inline-flex; align-items:center; gap:3px; background:#f1f5f9; color:#334155; padding:1px 7px; border-radius:4px; font-weight:600; border:1px solid #cbd5e1;">
+                            🎓 {{ item_grade }}{% if r.student_section %} (Sec {{ r.student_section }}){% endif %}
+                          </span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- 2. ROLL NO -->
+                <td style="padding:14px 18px;">
+                  <span class="roll-pill" style="display:inline-block; font-family:monospace; font-size:13px; font-weight:700; color:var(--text-main); background:#f1f5f9; padding:4px 10px; border-radius:var(--radius-full); border:1px solid #cbd5e1;">
+                    #{{ r.roll_no }}
+                  </span>
+                </td>
+
+                <!-- 3. SUBJECT -->
+                <td style="padding:14px 18px;">
+                  <div style="font-weight:600; font-size:13px; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary); flex-shrink:0;">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    </svg>
+                    <span>{{ r.subject }}</span>
+                  </div>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                    {{ r.exam_term }}
+                  </div>
+                </td>
+
+                <!-- 4. MARKS -->
+                <td style="padding:14px 18px;">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;">
+                    <span style="font-weight:800; font-size:15px; color:var(--text-main);">
+                      {{ r.marks_obtained|int if r.marks_obtained == r.marks_obtained|int else r.marks_obtained }}
+                      <span style="font-size:12px; font-weight:500; color:var(--text-muted);">/ {{ r.max_marks|int if r.max_marks == r.max_marks|int else r.max_marks }}</span>
+                    </span>
+                    <span class="grade-badge tier-{{ tier }}">
+                      {{ r.grade or (pct|round(0)|int ~ '%') }}
+                    </span>
+                  </div>
+                  <!-- Progress bar -->
+                  <div style="width:100%; height:5px; background:#e2e8f0; border-radius:9999px; overflow:hidden;">
+                    <div class="progress-bar-fill tier-{{ tier }}" style="height:100%; width:{{ [pct, 100]|min }}%;"></div>
+                  </div>
+                </td>
+
+                <!-- 5. RANK -->
+                <td style="padding:14px 18px;">
+                  {% if r.rank == 1 %}
+                    <span class="rank-badge rank-1" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color:#92400e; font-weight:800; font-size:12px; border-radius:var(--radius-full); border:1px solid #f59e0b; box-shadow:0 2px 4px rgba(245,158,11,0.2);">
+                      <span>🥇</span>
+                      <span>Rank 1</span>
+                    </span>
+                  {% elif r.rank == 2 %}
+                    <span class="rank-badge rank-2" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; background:linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color:#334155; font-weight:800; font-size:12px; border-radius:var(--radius-full); border:1px solid #94a3b8;">
+                      <span>🥈</span>
+                      <span>Rank 2</span>
+                    </span>
+                  {% elif r.rank == 3 %}
+                    <span class="rank-badge rank-3" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; background:linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%); color:#9a3412; font-weight:800; font-size:12px; border-radius:var(--radius-full); border:1px solid #ea580c;">
+                      <span>🥉</span>
+                      <span>Rank 3</span>
+                    </span>
+                  {% elif r.rank > 0 %}
+                    <span class="rank-badge rank-general" style="display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:26px; padding:0 8px; background:#f8fafc; color:var(--text-main); font-weight:700; font-size:12px; border-radius:var(--radius-full); border:1px solid var(--border-color);">
+                      #{{ r.rank }}
+                    </span>
+                  {% else %}
+                    <span style="color:var(--text-muted); font-size:12px;">--</span>
+                  {% endif %}
+                </td>
+
+                <!-- ROW ACTION (Delete) -->
+                <td class="no-print" style="padding:14px 18px; text-align:right;">
+                  <form action="{{ url_for('delete_result', result_id=r.id) }}" method="POST" onsubmit="return confirm('Remove this examination record?');" style="display:inline;">
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Delete this result" style="padding:5px 8px; color:var(--danger); border-color:#fecaca; background:#fff;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  </form>
+                </td>
+
+              </tr>
+            {% endfor %}
+          {% else %}
+            <!-- EMPTY STATE -->
+            <tr id="empty-state-row">
+              <td colspan="6" style="padding:60px 20px; text-align:center;">
+                <div style="max-width:440px; margin:0 auto;">
+                  <div style="width:64px; height:64px; border-radius:50%; background:#eff6ff; color:var(--primary); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </div>
+                  <h4 style="font-size:16px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                    No Examination Results {% if selected_grade != 'All' %}for {{ selected_grade }}{% else %}Uploaded Yet{% endif %}
+                  </h4>
+                  <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:18px;">
+                    {% if selected_grade != 'All' %}
+                      No results have been uploaded yet for <strong>{{ selected_grade }}</strong>. Upload an Excel (.xlsx, .xls, .csv) or PDF result sheet for this class above, or switch to another class.
+                    {% else %}
+                      Upload an Excel spreadsheet (.xlsx, .xls, .csv) or PDF document above. The system will automatically convert the file into an HTML list with student names, roll numbers, subjects, marks, and calculated ranks.
+                    {% endif %}
+                  </p>
+                  <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+                    <button type="button" onclick="document.getElementById('result-file-input').click()" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      Select File to Upload
+                    </button>
+                    <a href="{{ url_for('download_sample_template', grade=selected_grade if selected_grade != 'All' else None) }}" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                      Download Sample Template{% if selected_grade != 'All' %} ({{ selected_grade }}){% endif %}
+                    </a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ================= PAGINATION & SUMMARY FOOTER ================= -->
+    <div style="padding:14px 20px; background:#f8fafc; border-top:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+      
+      <!-- Record Range Info -->
+      <div style="font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        {% if all_results_count > 0 %}
+          <span>
+            Showing <strong id="visible-start" style="color:var(--text-main);">{{ start_record }}</strong> &ndash; <strong id="visible-end" style="color:var(--text-main);">{{ end_record }}</strong> of <strong id="visible-total" style="color:var(--text-main);">{{ all_results_count }}</strong> students
+          </span>
+          <span style="display:inline-block; width:4px; height:4px; border-radius:50%; background:#94a3b8;"></span>
+          <span style="background:#eff6ff; color:var(--primary); padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px; border:1px solid #bfdbfe;">
+            10 students per page
+          </span>
+          {% if total_pages > 1 %}
+            <span style="display:inline-block; width:4px; height:4px; border-radius:50%; background:#94a3b8;"></span>
+            <span style="font-size:12px; color:var(--text-muted);">
+              Page <strong style="color:var(--text-main);">{{ current_page }}</strong> of <strong style="color:var(--text-main);">{{ total_pages }}</strong>
+            </span>
+          {% endif %}
+        {% else %}
+          <span>0 students found</span>
+        {% endif %}
+      </div>
+
+      <!-- Pagination Navigation Controls -->
+      {% if total_pages > 1 %}
+      <nav class="no-print" aria-label="Result Pagination" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        
+        <!-- Previous Page Button -->
+        {% if has_prev %}
+          <a href="{{ url_for('exam_results_view', page=prev_page, grade=selected_grade if selected_grade != 'All' else None, term=selected_term if selected_term != 'All' else None, subject=selected_subject if selected_subject != 'All' else None, search=search if search else None, sort=sort_by if sort_by != 'rank' else None) }}" 
+             class="btn btn-secondary btn-sm pagination-nav-btn" 
+             title="Go to Page {{ prev_page }}"
+             style="display:inline-flex; align-items:center; gap:5px; padding:6px 12px; font-weight:600; text-decoration:none; background:#ffffff; border-color:var(--border-color);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Previous</span>
+          </a>
+        {% else %}
+          <span class="btn btn-secondary btn-sm pagination-nav-btn disabled" 
+                style="display:inline-flex; align-items:center; gap:5px; padding:6px 12px; opacity:0.45; cursor:not-allowed; pointer-events:none; background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Previous</span>
+          </span>
+        {% endif %}
+
+        <!-- Numeric Page Buttons (1, 2, 3...) -->
+        <div style="display:flex; align-items:center; gap:4px;">
+          {% for p in page_range %}
+            {% if p == '...' %}
+              <span style="padding:6px 8px; color:var(--text-muted); font-size:13px; font-weight:700;">&hellip;</span>
+            {% elif p == current_page %}
+              <span class="btn btn-primary btn-sm pagination-num-btn active" 
+                    style="min-width:34px; height:32px; padding:0 10px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; border-radius:var(--radius-sm); box-shadow:0 2px 5px rgba(79,70,229,0.25);">
+                {{ p }}
+              </span>
+            {% else %}
+              <a href="{{ url_for('exam_results_view', page=p, grade=selected_grade if selected_grade != 'All' else None, term=selected_term if selected_term != 'All' else None, subject=selected_subject if selected_subject != 'All' else None, search=search if search else None, sort=sort_by if sort_by != 'rank' else None) }}" 
+                 class="btn btn-secondary btn-sm pagination-num-btn" 
+                 title="Go to Page {{ p }}"
+                 style="min-width:34px; height:32px; padding:0 10px; display:inline-flex; align-items:center; justify-content:center; font-weight:600; text-decoration:none; background:#ffffff; border-color:var(--border-color); color:var(--text-main);">
+                {{ p }}
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- Next Page Button -->
+        {% if has_next %}
+          <a href="{{ url_for('exam_results_view', page=next_page, grade=selected_grade if selected_grade != 'All' else None, term=selected_term if selected_term != 'All' else None, subject=selected_subject if selected_subject != 'All' else None, search=search if search else None, sort=sort_by if sort_by != 'rank' else None) }}" 
+             class="btn btn-secondary btn-sm pagination-nav-btn" 
+             title="Go to Page {{ next_page }}"
+             style="display:inline-flex; align-items:center; gap:5px; padding:6px 12px; font-weight:600; text-decoration:none; background:#ffffff; border-color:var(--border-color);">
+            <span>Next</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </a>
+        {% else %}
+          <span class="btn btn-secondary btn-sm pagination-nav-btn disabled" 
+                style="display:inline-flex; align-items:center; gap:5px; padding:6px 12px; opacity:0.45; cursor:not-allowed; pointer-events:none; background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0;">
+            <span>Next</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </span>
+        {% endif %}
+
+      </nav>
+      {% else %}
+      <div style="font-size:12px; color:var(--text-muted);">
+        Required List Order: <strong>1. Student Name</strong> &bull; <strong>2. Roll No</strong> &bull; <strong>3. Subject</strong> &bull; <strong>4. Marks</strong> &bull; <strong>5. Rank</strong>
+      </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ================= JAVASCRIPT FOR DRAG-DROP, CLIENT FILTER & PRINT ================= -->
+<script>
+  const SELECTED_GRADE = "{{ selected_grade }}";
+
+  // Setup Dropzone
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('result-file-input');
+  const dropZoneIdle = document.getElementById('drop-zone-idle');
+  const dropZoneSelected = document.getElementById('drop-zone-selected');
+  const fileNameDisplay = document.getElementById('file-name-display');
+  const fileSizeDisplay = document.getElementById('file-size-display');
+  const fileTypeIcon = document.getElementById('file-type-icon');
+  const btnRemoveFile = document.getElementById('btn-remove-file');
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', (e) => {
+      if (e.target === btnRemoveFile || btnRemoveFile.contains(e.target)) return;
+      fileInput.click();
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.borderColor = 'var(--primary)';
+        dropZone.style.background = '#eff6ff';
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.borderColor = '#cbd5e1';
+        dropZone.style.background = '#fafafa';
+      });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelected(fileInput.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        handleFileSelected(fileInput.files[0]);
+      }
+    });
+
+    btnRemoveFile.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.value = '';
+      dropZoneIdle.style.display = 'block';
+      dropZoneSelected.style.display = 'none';
+    });
+  }
+
+  function handleFileSelected(file) {
+    if (!file) return;
+    const name = file.name;
+    const sizeKB = (file.size / 1024).toFixed(1);
+    const ext = name.split('.').pop().toLowerCase();
+
+    fileNameDisplay.innerText = name;
+    fileSizeDisplay.innerText = `${sizeKB} KB - Ready to process`;
+
+    if (ext === 'pdf') {
+      fileTypeIcon.innerText = '📕';
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      fileTypeIcon.innerText = '📊';
+    } else if (ext === 'csv') {
+      fileTypeIcon.innerText = '📄';
+    } else {
+      fileTypeIcon.innerText = '📁';
+    }
+
+    dropZoneIdle.style.display = 'none';
+    dropZoneSelected.style.display = 'block';
+  }
+
+  // Real-time table filter
+  function filterResultsTable() {
+    const query = (document.getElementById('result-search-input').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.result-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const name = row.getAttribute('data-name') || '';
+      const roll = row.getAttribute('data-roll') || '';
+      const subject = row.getAttribute('data-subject') || '';
+      const grade = row.getAttribute('data-grade') || '';
+
+      if (!query || name.includes(query) || roll.includes(query) || subject.includes(query) || grade.includes(query)) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    const counter = document.getElementById('visible-count');
+    if (counter) counter.innerText = visibleCount;
+  }
+
+  // Filter & Sort redirect (defaults to page 1 on filter changes)
+  function applyFilters(page = 1) {
+    const gradeSelect = document.getElementById('filter-grade');
+    const grade = gradeSelect ? gradeSelect.value : SELECTED_GRADE;
+    const term = document.getElementById('filter-term').value;
+    const subject = document.getElementById('filter-subject').value;
+    const sort = document.getElementById('sort-select').value;
+    const search = (document.getElementById('result-search-input').value || '').trim();
+
+    const params = new URLSearchParams();
+    if (grade && grade !== 'All') params.set('grade', grade);
+    if (term && term !== 'All') params.set('term', term);
+    if (subject && subject !== 'All') params.set('subject', subject);
+    if (sort && sort !== 'rank') params.set('sort', sort);
+    if (search) params.set('search', search);
+    if (page && page > 1) params.set('page', page);
+
+    window.location.href = '/results?' + params.toString();
+  }
+
+  // Trigger server-side search across all pages when pressing Enter
+  const searchInputEl = document.getElementById('result-search-input');
+  if (searchInputEl) {
+    searchInputEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyFilters(1);
+      }
+    });
+  }
+</script>
+
+<style>
+  /* Result specific styles */
+  .result-row:hover {
+    background-color: #f8fafc !important;
+  }
+
+  /* Grade badge tiers */
+  .grade-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .grade-badge.tier-high {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+  .grade-badge.tier-mid {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+  }
+  .grade-badge.tier-low {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  .grade-badge.tier-danger {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+
+  /* Progress bar tiers */
+  .progress-bar-fill.tier-high { background: #10b981; }
+  .progress-bar-fill.tier-mid { background: #2563eb; }
+  .progress-bar-fill.tier-low { background: #f59e0b; }
+  .progress-bar-fill.tier-danger { background: #ef4444; }
+
+  @media print {
+    .sidebar, .top-navbar, .upload-dropzone, #result-upload-form, .btn, .no-print, .flash-container {
+      display: none !important;
+    }
+    .main-wrapper {
+      margin-left: 0 !important;
+      padding: 0 !important;
+    }
+    body {
+      background: #ffffff !important;
+    }
+    .card {
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .table-container {
+      overflow: visible !important;
+    }
+  }
+</style>
+{% endblock %}

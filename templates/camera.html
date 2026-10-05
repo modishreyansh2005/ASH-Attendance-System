@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Live Camera Attendance Hub | Ash Education{% endblock %}
+{% block page_heading %}Live Camera Attendance Hub{% endblock %}
+{% block page_subheading %}Position the camera to recognize student faces and mark attendance automatically{% endblock %}
+
+{% block content %}
+<div class="camera-grid">
+  <!-- Left Side: Live Camera Viewport & Controls -->
+  <div>
+    <div class="camera-card">
+      <!-- Camera Viewport -->
+      <div class="camera-viewport" id="viewport-container">
+        <video id="webcam-video" autoplay playsinline muted></video>
+        <img id="static-picture-view" style="display:none; width:100%; height:440px; object-fit:contain; background:#0f172a;" alt="Scanned Picture">
+        <canvas id="overlay-canvas"></canvas>
+        <div class="camera-scanline"></div>
+
+        <!-- Overlaid Status Header -->
+        <div class="camera-header-overlay">
+          <div class="camera-tag">
+            <span class="dot"></span>
+            <span id="camera-status-label">Camera Online & Scanning</span>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <button id="btn-back-live" class="btn btn-sm" style="display:none; background:#2563eb; color:white; border:none; backdrop-filter:blur(6px); cursor:pointer;">
+              <span>&larr; Live Camera</span>
+            </button>
+            <button id="btn-sound-toggle" class="btn btn-sm" style="background:rgba(15,23,42,0.75); color:white; border:none; backdrop-filter:blur(6px);">
+              <svg id="sound-icon-on" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              <span id="sound-label">Audio Chime ON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Permission Prompt / Fallback Banner -->
+        <div id="camera-fallback" style="display:none; position:absolute; inset:0; background:white; z-index:30; padding:32px 24px; text-align:center; flex-direction:column; justify-content:center; align-items:center; overflow-y:auto;">
+          <div id="fallback-icon-container" style="width:60px; height:60px; border-radius:50%; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; margin-bottom:14px; flex-shrink:0;">
+            <svg id="fallback-icon-default" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </div>
+          <h3 id="camera-fallback-title" style="font-size:18px; font-weight:700; color:var(--text-main); margin-bottom:6px;">Camera Access Needed</h3>
+          <p id="camera-fallback-desc" style="font-size:13px; color:var(--text-muted); max-width:460px; margin-bottom:16px; line-height:1.5;">
+            Please grant camera permissions to activate real-time OpenCV student facial recognition and automatic attendance logging.
+          </p>
+
+          <!-- Dynamic Alert / Help Box for Specific Errors (Blocked, Insecure Origin, In-Use) -->
+          <div id="camera-fallback-alert" style="display:none; max-width:480px; width:100%; margin-bottom:18px; padding:12px 16px; border-radius:8px; text-align:left; font-size:12px; line-height:1.6; background:#fef2f2; border:1px solid #fecaca; color:#991b1b;">
+          </div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; align-items:center;">
+            <button id="btn-request-camera" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:8px;">
+              <svg id="btn-camera-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <span id="btn-camera-text">Grant Camera Permission</span>
+            </button>
+            <button id="btn-reload-camera" class="btn btn-secondary" style="display:none; display:none; align-items:center; gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              <span>Reload Page</span>
+            </button>
+            <a id="btn-goto-localhost" href="http://127.0.0.1:5000/camera" class="btn btn-secondary" style="display:none; align-items:center; gap:6px;">
+              <span>Open via Localhost</span>
+            </a>
+            <button id="btn-demo-simulate" class="btn btn-secondary">
+              Simulate Test Face
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Bottom Bar -->
+      <div class="camera-controls-bar">
+        <div class="status-callout">
+          <div class="status-callout-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-main);">Continuous Smart Auto-Marking</div>
+            <div style="font-size:11px; color:var(--text-muted);">Faces are detected, recognized, and logged automatically</div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <!-- Manual Quick Snap Button -->
+          <button id="btn-snap-attendance" class="btn btn-secondary btn-sm" title="Manually take a snapshot to recognize faces">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span>Scan Now</span>
+          </button>
+
+          <!-- Upload Live Picture Button -->
+          <button id="btn-upload-photo" class="btn btn-secondary btn-sm" title="Upload a photo / live picture to detect student face and mark attendance">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Upload Picture</span>
+          </button>
+          <input type="file" id="input-upload-photo" accept="image/*" style="display:none;">
+
+          <!-- Toggle Pause/Resume -->
+          <button id="btn-toggle-scan" class="btn btn-primary btn-sm">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            <span id="scan-toggle-text">Pause Scanning</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Recognition Feedback Card -->
+    <div style="margin-top:20px;">
+      <div id="verified-card" class="recognition-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted);" id="recognition-banner-tag">
+            Awaiting Student Face
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="btn-open-audit" type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:11px; font-weight:600;" title="View Recognition Audit Events">
+              <span>📋 Audit Log</span>
+            </button>
+            <span id="recognition-time-badge" class="badge badge-excused">--:--:--</span>
+          </div>
+        </div>
+
+        <div class="recognized-profile">
+          <img id="recognized-avatar" src="{{ url_for('static', filename='img/avatar_default.png') }}" class="recognized-avatar" alt="Avatar" onerror="this.src='https://ui-avatars.com/api/?name=Student&background=E0E7FF&color=4338CA'">
+          <div class="recognized-details">
+            <h4 id="recognized-name">Stand in Front of Camera</h4>
+            <p id="recognized-meta">Classroom camera is active. Keep face steady for instant verification.</p>
+            
+            <!-- Multi-Frame Confirmation Progress Bar (Section 2.2) -->
+            <div id="verification-progress-container" style="display:none; margin-top:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#2563eb; margin-bottom:4px;">
+                <span id="verification-progress-label">Multi-Frame Confirmation...</span>
+                <span id="verification-progress-percent">0 / 5 Frames</span>
+              </div>
+              <div style="width:100%; height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden;">
+                <div id="verification-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #3b82f6, #2563eb); transition:width 0.15s ease;"></div>
+              </div>
+            </div>
+
+            <div id="recognition-confidence-tag" style="margin-top:6px; display:none;">
+              <span class="badge badge-present" id="conf-badge-text">✓ Match Confirmed (96%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recognition Audit Log Modal (Section 11) -->
+  <div id="audit-modal" class="modal-overlay" style="display:none;" onclick="if(event.target === this) this.style.display='none';">
+    <div class="modal-content" style="max-width: 680px; max-height: 85vh; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+        <div>
+          <h3 style="font-size:17px; font-weight:800; color:var(--text-main); margin:0;">📋 Recognition Audit Log</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0 0;">Real-time camera biometric decisions, confidence scores, and safety events (Section 11)</p>
+        </div>
+        <button type="button" onclick="document.getElementById('audit-modal').style.display='none'" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); line-height:1;">&times;</button>
+      </div>
+
+      <div style="overflow-y:auto; flex:1; max-height:480px;">
+        <table class="custom-table" style="font-size:12px;">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Detected Identity</th>
+              <th>Confidence</th>
+              <th>Safety Result</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody id="audit-logs-tbody">
+            <tr>
+              <td colspan="5" style="text-align:center; padding:24px; color:var(--text-muted);">Loading audit events...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <span id="audit-unknown-stat" style="font-size:12px; color:var(--text-muted); font-weight:600;">Unknown Detections: --</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('audit-modal').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Today's Live Attendance Feed & Quick Roll -->
+  <div>
+    <div class="card" style="height:100%; display:flex; flex-direction:column;">
+      <div class="card-header" style="margin-bottom:14px;">
+        <div>
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--success);">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Today's Check-ins
+          </div>
+          <div class="card-subtitle">Real-time attendance stream for {{ today }}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="badge badge-present" id="live-count-badge">{{ attendance_records | selectattr('attendance_status', 'equalto', 'Present') | list | length }} Present</span>
+        </div>
+      </div>
+
+      <!-- Live Scrollable Feed -->
+      <div class="live-feed-list" id="attendance-feed-list">
+        {% set marked_any = false %}
+        {% for record in attendance_records %}
+          {% if record.attendance_status in ['Present', 'Late'] %}
+            {% set marked_any = true %}
+            <div class="feed-item" data-student-id="{{ record.student_id }}">
+              <div class="student-cell">
+                <img src="{{ record.photo_path or url_for('static', filename='img/avatar_default.png') }}" class="student-avatar" alt="{{ record.full_name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ record.full_name }}&background=E0E7FF&color=4338CA'">
+                <div class="student-meta">
+                  <div class="name">
+                    {{ record.full_name }}
+                    {% if record.gender and record.gender|lower in ['male', 'boy', 'm'] %}
+                      <span class="gender-tag-pill boy" style="font-size:10px; padding:1px 5px; margin-left:4px;">👦 Boy</span>
+                    {% elif record.gender and record.gender|lower in ['female', 'girl', 'f'] %}
+                      <span class="gender-tag-pill girl" style="font-size:10px; padding:1px 5px; margin-left:4px;">👧 Girl</span>
+                    {% endif %}
+                  </div>
+                  <div class="sub">{{ record.grade }} - {{ record.section }} | Roll: {{ record.roll_no }}</div>
+                </div>
+              </div>
+
+              <div style="text-align:right;">
+                <div style="font-size:12px; font-weight:700; color:var(--text-main);">{{ record.time }}</div>
+                {% if record.attendance_status == 'Present' %}
+                  <span class="badge badge-present" style="font-size:10px; padding:2px 7px;">✓ Verified</span>
+                {% else %}
+                  <span class="badge badge-late" style="font-size:10px; padding:2px 7px;">⏱ Late</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        {% if not marked_any %}
+          <div id="empty-feed-placeholder" style="text-align:center; padding:36px 16px; color:var(--text-muted);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-light); margin-bottom:8px;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <p style="font-size:13px; font-weight:600; color:var(--text-main);">No check-ins yet today</p>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">Students recognized by camera will appear here instantly.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Quick Action Footer -->
+      <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
+        <a href="{{ url_for('attendance_logs') }}" style="font-size:12px; font-weight:600; color:var(--primary); text-decoration:none;">
+          View Full Daily Sheet &rarr;
+        </a>
+        <button id="btn-retrain-camera" class="btn btn-secondary btn-sm" title="Re-sync facial database">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Sync Face AI</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/camera.js') }}"></script>
+{% endblock %}

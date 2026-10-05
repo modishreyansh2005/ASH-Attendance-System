@@ -1,0 +1,933 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Ash Education Smart Attendance{% endblock %}
+{% block page_heading %}Attendance Command Center{% endblock %}
+{% block page_subheading %}Automated Face Recognition Vision & Real-Time Campus Intelligence{% endblock %}
+
+{% block extra_head %}
+<!-- Offline-first Chart.js local bundle with fallback to CDN -->
+<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+<script>
+  if (typeof Chart === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>');
+  }
+</script>
+<style>
+  /* Page-specific micro adjustments */
+  .fade-in-up {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in-up">
+  <!-- 1. Top Header & Control Command Bar -->
+  <div class="dash-hero-header">
+    <div class="dash-welcome">
+      <h2 class="dash-greeting-title">
+        <span id="dynamic-greeting">Good day</span>, <span class="admin-highlight">Administrator</span>
+      </h2>
+      <p class="dash-greeting-subtitle">
+        {% if selected_grade != 'All' %}
+          Class Division Monitor: <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:2px 10px; border-radius:6px; font-weight:700;">{{ selected_grade }}</span> for <strong>{{ selected_date }}</strong>
+          <a href="{{ url_for('dashboard', date=selected_date, grade='All') }}" style="margin-left:8px; font-size:12px; font-weight:700; color:var(--primary); text-decoration:none;">(Show All Classes &rarr;)</a>
+        {% else %}
+          Campus Attendance Intelligence & Biometric Monitoring for <strong>{{ selected_date }}</strong>
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="dash-controls">
+      <form method="GET" action="{{ url_for('dashboard') }}" id="date-filter-form" class="dash-date-form">
+        {% if selected_grade %}
+          <input type="hidden" name="grade" value="{{ selected_grade }}">
+        {% endif %}
+        <div class="date-input-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <input type="date" id="dash-date-picker" name="date" value="{{ selected_date }}" onchange="this.form.submit()">
+        </div>
+        <button type="button" class="btn-refresh" onclick="location.reload()" title="Refresh Dashboard Feed">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Interactive Class Division Switcher Tabs -->
+  <div class="grade-pill-scroller">
+    <span class="pill-label">Class Division:</span>
+    <a href="{{ url_for('dashboard', date=selected_date, grade='All') }}" 
+       class="grade-pill {% if selected_grade == 'All' %}active{% endif %}"
+       title="View metrics across all classes">
+      <span>All Classes</span>
+      <span class="count-chip">{{ total_all_students }}</span>
+    </a>
+    {% for g in all_grades %}
+      <a href="{{ url_for('dashboard', date=selected_date, grade=g) }}" 
+         class="grade-pill {% if selected_grade == g %}active{% endif %}"
+         title="Filter to {{ g }}">
+        <span>{{ g }}</span>
+        <span class="count-chip">{{ grade_counts.get(g, 0) }}</span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- 3. KPI Metric Stat Cards (4 Columns) -->
+  <div class="dash-kpi-grid">
+    <!-- Card 1: Total Enrolled -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </div>
+        <span class="kpi-tag blue">
+          {{ selected_grade if selected_grade != 'All' else 'Campus-wide' }}
+        </span>
+      </div>
+      <div class="kpi-value-block">
+        <h3>{{ stats.total_students }}</h3>
+        <p>Total Enrolled Students</p>
+      </div>
+      <div class="kpi-footer-note">
+        <span>Active Roster</span>
+        <strong>100% Registered</strong>
+      </div>
+    </div>
+
+    <!-- Card 2: Present Today -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap emerald">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <span class="kpi-tag emerald">
+          {{ stats.attendance_rate }}% Turnout
+        </span>
+      </div>
+      <div class="kpi-value-block">
+        <h3>{{ stats.present_count }}</h3>
+        <p>Verified Present</p>
+      </div>
+      <div class="kpi-footer-note">
+        <span>AI vs Roll Call</span>
+        <strong>{{ stats.camera_count }} Camera • {{ stats.manual_count }} Manual</strong>
+      </div>
+    </div>
+
+    <!-- Card 3: Unmarked / Absent -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap rose">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <span class="kpi-tag rose">
+          {% if stats.absent_count > 0 %}Attention Required{% else %}All Present{% endif %}
+        </span>
+      </div>
+      <div class="kpi-value-block">
+        <h3>{{ stats.absent_count }}</h3>
+        <p>Unmarked / Absent</p>
+      </div>
+      <div class="kpi-footer-note">
+        {% if stats.absent_count > 0 %}
+          <a href="{{ url_for('absent_alert', date=selected_date, grade=selected_grade) }}" style="color:#e11d48; text-decoration:none; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+            <span>💬 WhatsApp Alerts</span>
+            <span>&rarr;</span>
+          </a>
+        {% else %}
+          <span style="color:#059669; font-weight:600;">✓ Perfect Attendance</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 3B. Boys & Girls Separated Attendance Intelligence Section -->
+  <div class="gender-analytics-section">
+    <div class="gender-section-header">
+      <div class="gender-section-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <span>Gender-Wise Attendance Analysis (Boys &amp; Girls)</span>
+      </div>
+      <div class="gender-summary-chips">
+        <span class="gender-pill-stat boy" title="Total registered male students">
+          <span>👦 Boys Enrolled:</span>
+          <strong>{{ stats.boys_total }}</strong>
+        </span>
+        <span class="gender-pill-stat girl" title="Total registered female students">
+          <span>👧 Girls Enrolled:</span>
+          <strong>{{ stats.girls_total }}</strong>
+        </span>
+        {% if stats.others_total and stats.others_total > 0 %}
+          <span class="gender-pill-stat other" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
+            <span>Other:</span>
+            <strong>{{ stats.others_total }}</strong>
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 2 Main Cards: Boys Attendance & Girls Attendance -->
+    <div class="gender-kpi-grid">
+      <!-- Boys Attendance Card -->
+      <div class="gender-kpi-card boy">
+        <div class="gender-kpi-top">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="gender-avatar-wrap boy">
+              👦
+            </div>
+            <div>
+              <div class="gender-category-title">
+                <span>Boys Attendance</span>
+              </div>
+              <div class="gender-category-sub">
+                {{ selected_grade if selected_grade != 'All' else 'Campus-wide' }} Male Students
+              </div>
+            </div>
+          </div>
+          <span class="gender-turnout-badge boy">
+            {{ stats.boys_rate }}% Turnout
+          </span>
+        </div>
+
+        <div class="gender-headline-stat">
+          <div class="gender-main-number">
+            {{ stats.boys_present }}
+            <span class="gender-denominator">/ {{ stats.boys_total }} Present</span>
+          </div>
+          <div class="gender-metric-label">
+            {% if stats.boys_total > 0 %}
+              {{ stats.boys_marked }} of {{ stats.boys_total }} accounted for today
+            {% else %}
+              No male students enrolled in active roster
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="gender-prog-container">
+          <div class="gender-prog-bar">
+            <div class="gender-prog-fill boy" style="width: {{ stats.boys_rate }}%;"></div>
+          </div>
+        </div>
+
+        <!-- Micro stats grid (Present and Absent only) -->
+        <div class="gender-metrics-subgrid">
+          <div class="gender-sub-item">
+            <span class="gender-sub-title">Present</span>
+            <span class="gender-sub-val present">{{ stats.boys_present }}</span>
+          </div>
+          <div class="gender-sub-item">
+            <span class="gender-sub-title">Absent</span>
+            <span class="gender-sub-val absent">{{ stats.boys_absent }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Girls Attendance Card -->
+      <div class="gender-kpi-card girl">
+        <div class="gender-kpi-top">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="gender-avatar-wrap girl">
+              👧
+            </div>
+            <div>
+              <div class="gender-category-title">
+                <span>Girls Attendance</span>
+              </div>
+              <div class="gender-category-sub">
+                {{ selected_grade if selected_grade != 'All' else 'Campus-wide' }} Female Students
+              </div>
+            </div>
+          </div>
+          <span class="gender-turnout-badge girl">
+            {{ stats.girls_rate }}% Turnout
+          </span>
+        </div>
+
+        <div class="gender-headline-stat">
+          <div class="gender-main-number">
+            {{ stats.girls_present }}
+            <span class="gender-denominator">/ {{ stats.girls_total }} Present</span>
+          </div>
+          <div class="gender-metric-label">
+            {% if stats.girls_total > 0 %}
+              {{ stats.girls_marked }} of {{ stats.girls_total }} accounted for today
+            {% else %}
+              No female students enrolled in active roster
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="gender-prog-container">
+          <div class="gender-prog-bar">
+            <div class="gender-prog-fill girl" style="width: {{ stats.girls_rate }}%;"></div>
+          </div>
+        </div>
+
+        <!-- Micro stats grid (Present and Absent only) -->
+        <div class="gender-metrics-subgrid">
+          <div class="gender-sub-item">
+            <span class="gender-sub-title">Present</span>
+            <span class="gender-sub-val present">{{ stats.girls_present }}</span>
+          </div>
+          <div class="gender-sub-item">
+            <span class="gender-sub-title">Absent</span>
+            <span class="gender-sub-val absent">{{ stats.girls_absent }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Analytics Row: Turnout Ratio, Gender Comparison, Class Breakdown & Arrival Timeline -->
+  <div class="dash-analytics-grid">
+    <!-- Chart 1: Real-time Attendance Gauge Chart -->
+    <div class="turnout-card">
+      <div>
+        <div class="chart-header">
+          <div class="chart-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+              <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+            </svg>
+            <span>Daily Attendance Ratio</span>
+          </div>
+          <span style="font-size:12px; color:var(--text-muted); font-weight:600;">{{ selected_date }}</span>
+        </div>
+
+        <!-- Doughnut Canvas -->
+        <div class="doughnut-wrapper">
+          <canvas id="turnoutDoughnutChart"></canvas>
+          <div class="doughnut-center-text">
+            <div class="rate-number">{{ stats.attendance_rate }}%</div>
+            <div class="rate-label">Turnout</div>
+          </div>
+        </div>
+
+        <!-- Doughnut Legend Badges -->
+        <div class="turnout-legend">
+          <div class="legend-item">
+            <span class="legend-dot emerald"></span>
+            <span>Present: <strong>{{ stats.present_count }}</strong></span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot rose"></span>
+            <span>Absent: <strong>{{ stats.absent_count }}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; text-align:center;">
+        <a href="{{ url_for('reports', grade=selected_grade) }}" style="display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:var(--primary); font-size:12px; font-weight:700;">
+          <span>Detailed Analytics &amp; Trends Report</span>
+          <span>&rarr;</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Chart 2: Boys vs Girls Attendance Comparison Chart -->
+    <div class="analytics-card">
+      <div class="chart-header">
+        <div class="chart-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Boys vs Girls Attendance</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:11px; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:10px; font-weight:700;">
+            👦 {{ stats.boys_rate }}%
+          </span>
+          <span style="font-size:11px; background:#fdf2f8; color:#be185d; padding:2px 8px; border-radius:10px; font-weight:700;">
+            👧 {{ stats.girls_rate }}%
+          </span>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="genderComparisonChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 3: Turnout by Grade or Section -->
+    <div class="analytics-card" style="grid-column: 1 / -1;">
+      <div class="chart-header">
+        <div class="chart-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span>{% if selected_grade != 'All' %}{{ selected_grade }} Turnout by Section{% else %}Attendance Rate by Class{% endif %}</span>
+        </div>
+        <span style="font-size:11px; background:#eff6ff; color:#2563eb; padding:3px 8px; border-radius:10px; font-weight:700;">
+          {% if selected_grade != 'All' %}{{ selected_grade }} Only{% else %}All Divisions{% endif %}
+        </span>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="gradeTurnoutBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Classroom Turnout Snapshots (Mini Cards) -->
+  {% if stats.grade_distribution and stats.grade_distribution|length > 0 %}
+    <div class="classrooms-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h4 style="font-size:14px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          {% if selected_grade != 'All' %}{{ selected_grade }} Section Breakdown{% else %}Classroom Divisions Turnout Status{% endif %}
+        </h4>
+        <span style="font-size:12px; color:var(--text-muted);">{{ stats.grade_distribution|length }} Active {% if selected_grade != 'All' %}Sections{% else %}Classes{% endif %}</span>
+      </div>
+      <div class="classroom-cards-grid">
+        {% for gd in stats.grade_distribution %}
+          <div class="classroom-box" style="cursor:default;">
+            <div class="classroom-box-top">
+              <span class="classroom-box-title">{{ gd.grade }}</span>
+              <span class="classroom-box-rate">{{ gd.rate }}%</span>
+            </div>
+            <div class="class-mini-bar">
+              <div class="class-mini-fill {% if gd.rate >= 75 %}fill-high{% elif gd.rate >= 50 %}fill-mid{% else %}fill-low{% endif %}" style="width: {{ gd.rate }}%;"></div>
+            </div>
+            <div class="classroom-box-meta">
+              <span>{{ gd.present }} of {{ gd.total }} Present</span>
+              <span>{{ gd.absent }} Absent</span>
+            </div>
+            <div class="classroom-gender-row">
+              <span class="classroom-gender-badge boy" title="Boys: {{ gd.boys_present }} present out of {{ gd.boys_total }}">👦 Boys: {{ gd.boys_present }}/{{ gd.boys_total }}</span>
+              <span class="classroom-gender-badge girl" title="Girls: {{ gd.girls_present }} present out of {{ gd.girls_total }}">👧 Girls: {{ gd.girls_present }}/{{ gd.girls_total }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- 7. Real-time Facial Recognition Activity Stream -->
+  <div class="live-activity-card">
+    <div class="activity-header">
+      <div>
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Live Biometric Camera Check-in Feed
+        </div>
+        <div class="card-subtitle">
+          Recent student check-ins processed through OpenCV facial scanner and classroom roll
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="activity-search-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="feed-search-input" placeholder="Filter by name, roll, or ID..." onkeyup="filterLiveFeed()">
+        </div>
+        <a href="{{ url_for('attendance_logs', date=selected_date, grade=selected_grade) }}" class="btn btn-secondary btn-sm">
+          <span>Full Register</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+
+    {% if stats.recent_logs and stats.recent_logs|length > 0 %}
+      <div class="table-responsive">
+        <table class="custom-table" id="recent-logs-table">
+          <thead>
+            <tr>
+              <th>Student Profile</th>
+              <th>Gender</th>
+              <th>Class & Section</th>
+              <th>Roll Number</th>
+              <th>Check-in Time</th>
+              <th>Status</th>
+              <th>Recognition Method</th>
+              <th>AI Confidence</th>
+              <th style="text-align:right;">Quick Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in stats.recent_logs %}
+              <tr class="log-data-row" data-search="{{ log.full_name|lower }} {{ log.student_id|lower }} {{ log.roll_no|lower }} {{ log.grade|lower }} {{ log.gender|lower }}">
+                <td>
+                  <div class="student-cell">
+                    <img src="{{ log.photo_path or url_for('static', filename='img/avatar_default.png') }}" 
+                         class="student-avatar" 
+                         alt="{{ log.full_name }}" 
+                         onerror="this.src='https://ui-avatars.com/api/?name={{ log.full_name|urlencode }}&background=E0E7FF&color=4338CA'">
+                    <div class="student-meta">
+                      <div class="name">{{ log.full_name }}</div>
+                      <div class="sub">{{ log.student_id }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {% if log.gender|lower in ['male', 'boy', 'm'] %}
+                    <span class="gender-tag-pill boy">👦 Boy</span>
+                  {% elif log.gender|lower in ['female', 'girl', 'f'] %}
+                    <span class="gender-tag-pill girl">👧 Girl</span>
+                  {% else %}
+                    <span class="gender-tag-pill other">{{ log.gender or 'N/A' }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge" style="background:#eff6ff; color:#2563eb; font-weight:700;">
+                    {{ log.grade }} - {{ log.section }}
+                  </span>
+                </td>
+                <td>
+                  <code style="font-size:12px; font-weight:700; background:#f1f5f9; padding:2px 8px; border-radius:4px;">
+                    {{ log.roll_no }}
+                  </code>
+                </td>
+                <td>
+                  <span style="display:inline-flex; align-items:center; gap:5px; font-weight:700; color:var(--text-main);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    {{ log.time }}
+                  </span>
+                </td>
+                <td>
+                  {% if log.status == 'Present' %}
+                    <span class="badge badge-present">✓ Present</span>
+                  {% elif log.status == 'Late' %}
+                    <span class="badge badge-late">⏱ Late</span>
+                  {% else %}
+                    <span class="badge badge-excused">{{ log.status }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if log.method == 'Camera-OpenCV' %}
+                    <span style="display:inline-flex; align-items:center; gap:5px; color:#2563eb; font-weight:700; font-size:12px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                      Facial AI Scan
+                    </span>
+                  {% else %}
+                    <span style="color:var(--text-muted); font-size:12px; display:inline-flex; align-items:center; gap:4px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      Manual Roll
+                    </span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if log.confidence and log.confidence > 0 %}
+                    <span class="confidence-meter {% if log.confidence >= 65 %}high{% else %}med{% endif %}">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      {{ log.confidence }}% Match
+                    </span>
+                  {% else %}
+                    <span style="color:var(--text-light); font-size:12px;">100% (Manual)</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <a href="{{ url_for('attendance_logs', date=selected_date, grade=log.grade) }}" 
+                     class="btn btn-secondary btn-sm" 
+                     style="padding:3px 9px; font-size:11px;"
+                     title="View in class register">
+                    Roll Call &rarr;
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align:center; padding:48px 20px; background:#f8fafc; border-radius:var(--radius-md); border:1px dashed var(--border-color);">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-light); margin-bottom:12px;">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <h4 style="font-size:16px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+          No Check-in Records Found for {{ selected_date }}
+        </h4>
+        <p style="font-size:13px; color:var(--text-muted); max-width:440px; margin:0 auto 20px auto;">
+          Open the Live Camera Hub to begin capturing student faces or take roll call in the Daily Register.
+        </p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a href="{{ url_for('camera') }}" class="btn btn-primary">
+            Launch Live Camera Hub
+          </a>
+          <a href="{{ url_for('attendance_logs', date=selected_date) }}" class="btn btn-secondary">
+            Manual Roll Call
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 8. System Quick Actions Dock (Footer Hub) -->
+  <div style="margin-bottom:12px;">
+    <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      Quick Action Station
+    </h4>
+    <div class="quick-dock-grid">
+      <a href="{{ url_for('camera') }}" class="dock-card">
+        <div class="dock-icon" style="background:#eff6ff; color:#2563eb;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </div>
+        <div class="dock-info">
+          <h4>Live Camera Hub</h4>
+          <p>Face biometric scan</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('register_student') }}" class="dock-card">
+        <div class="dock-icon" style="background:#ecfdf5; color:#059669;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+        </div>
+        <div class="dock-info">
+          <h4>Enroll Student</h4>
+          <p>Train face dataset</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('absent_alert', date=selected_date, grade=selected_grade) }}" class="dock-card">
+        <div class="dock-icon" style="background:#fff1f2; color:#e11d48;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </div>
+        <div class="dock-info">
+          <h4>Absent Alert Hub</h4>
+          <p>WhatsApp parents</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('attendance_logs', date=selected_date, grade=selected_grade) }}" class="dock-card">
+        <div class="dock-icon" style="background:#fef3c7; color:#d97706;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        </div>
+        <div class="dock-info">
+          <h4>Daily Register</h4>
+          <p>Class roster logs</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('export_csv', start_date=selected_date, end_date=selected_date, grade=selected_grade) }}" class="dock-card">
+        <div class="dock-icon" style="background:#f5f3ff; color:#7c3aed;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </div>
+        <div class="dock-info">
+          <h4>Export CSV</h4>
+          <p>Download report sheet</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script id="dashboard-chart-data" type="text/plain">
+  {{ {
+    "present_count": stats.present_count or 0,
+    "late_count": stats.late_count or 0,
+    "absent_count": stats.absent_count or 0,
+    "total_students": stats.total_students or 0,
+    "boys_present": stats.boys_present or 0,
+    "boys_absent": stats.boys_absent or 0,
+    "girls_present": stats.girls_present or 0,
+    "girls_absent": stats.girls_absent or 0,
+    "grade_distribution": stats.grade_distribution or [],
+    "hourly_distribution": stats.hourly_distribution or []
+  }|tojson }}
+</script>
+
+<script>
+  // 1. Dynamic Greeting based on current hour
+  (function initGreeting() {
+    const hour = new Date().getHours();
+    let greeting = "Good morning";
+    if (hour >= 12 && hour < 17) {
+      greeting = "Good afternoon";
+    } else if (hour >= 17) {
+      greeting = "Good evening";
+    }
+    const el = document.getElementById('dynamic-greeting');
+    if (el) el.innerText = greeting;
+  })();
+
+  // 2. Quick Date Selector
+  function setQuickDate(offsetDays) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const picker = document.getElementById('dash-date-picker');
+    const form = document.getElementById('date-filter-form');
+    if (picker && form) {
+      picker.value = `${yyyy}-${mm}-${dd}`;
+      form.submit();
+    }
+  }
+
+  // 3. Client-side Feed Search
+  function filterLiveFeed() {
+    const input = document.getElementById('feed-search-input');
+    if (!input) return;
+    const query = input.value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.log-data-row');
+    rows.forEach(row => {
+      const data = row.getAttribute('data-search') || '';
+      if (!query || data.includes(query)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // 4. Initialize Interactive Charts via Chart.js
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js not loaded. Visual charts will show default states.');
+      return;
+    }
+
+    // Chart.js default fonts & styles
+    Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    // Safely load chart data payload from JSON script element
+    let chartData = {
+      present_count: 0,
+      late_count: 0,
+      absent_count: 0,
+      total_students: 0,
+      boys_present: 0,
+      boys_absent: 0,
+      girls_present: 0,
+      girls_absent: 0,
+      grade_distribution: [],
+      hourly_distribution: []
+    };
+
+    try {
+      const dataEl = document.getElementById('dashboard-chart-data');
+      if (dataEl && dataEl.textContent) {
+        chartData = Object.assign(chartData, JSON.parse(dataEl.textContent));
+      }
+    } catch (e) {
+      console.error('Error parsing dashboard chart data:', e);
+    }
+
+    // Chart 1: Turnout Doughnut Chart
+    const doughnutCtx = document.getElementById('turnoutDoughnutChart');
+    if (doughnutCtx) {
+      const presentCount = chartData.present_count;
+      const absentCount = chartData.absent_count;
+      const total = chartData.total_students;
+
+      new Chart(doughnutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Present', 'Absent'],
+          datasets: [{
+            data: total > 0 ? [presentCount, absentCount] : [0, 1],
+            backgroundColor: [
+              '#10b981', // Emerald
+              '#f43f5e'  // Rose
+            ],
+            borderWidth: 3,
+            borderColor: '#ffffff',
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '76%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const val = ctx.raw || 0;
+                  const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                  return ` ${ctx.label}: ${val} students (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Chart 2: Boys vs Girls Attendance Comparison Chart
+    const genderCtx = document.getElementById('genderComparisonChart');
+    if (genderCtx) {
+      const boysPresent = chartData.boys_present;
+      const boysAbsent = chartData.boys_absent;
+      const girlsPresent = chartData.girls_present;
+      const girlsAbsent = chartData.girls_absent;
+
+      new Chart(genderCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Present', 'Absent'],
+          datasets: [
+            {
+              label: 'Boys',
+              data: [boysPresent, boysAbsent],
+              backgroundColor: '#3b82f6',
+              borderRadius: 6,
+              barThickness: 28,
+              maxBarThickness: 36
+            },
+            {
+              label: 'Girls',
+              data: [girlsPresent, girlsAbsent],
+              backgroundColor: '#ec4899',
+              borderRadius: 6,
+              barThickness: 28,
+              maxBarThickness: 36
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, font: { size: 11, weight: 600 } },
+              grid: { color: '#f1f5f9' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: 600 } }
+            }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                boxWidth: 12,
+                boxHeight: 12,
+                usePointStyle: true,
+                font: { size: 11, weight: 600 }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ` ${ctx.dataset.label}: ${ctx.raw} student(s)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Chart 3: Grade Turnout Bar Chart
+    const gradeBarCtx = document.getElementById('gradeTurnoutBarChart');
+    if (gradeBarCtx) {
+      const gradeData = Array.isArray(chartData.grade_distribution) ? chartData.grade_distribution : [];
+      const labels = gradeData.map(g => g.grade);
+      const rates = gradeData.map(g => g.rate);
+      const totals = gradeData.map(g => g.total);
+      const presents = gradeData.map(g => g.present);
+
+      new Chart(gradeBarCtx, {
+        type: 'bar',
+        data: {
+          labels: labels.length > 0 ? labels : ['No Data'],
+          datasets: [{
+            label: 'Attendance Rate %',
+            data: rates.length > 0 ? rates : [0],
+            backgroundColor: function(context) {
+              const chart = context.chart;
+              const {ctx, chartArea} = chart;
+              if (!chartArea) return '#2563eb';
+              const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+              gradient.addColorStop(0, '#3b82f6');
+              gradient.addColorStop(1, '#1d4ed8');
+              return gradient;
+            },
+            borderRadius: 6,
+            barThickness: 28,
+            maxBarThickness: 36
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              grid: { color: '#f1f5f9' },
+              ticks: {
+                callback: function(val) { return val + '%'; },
+                font: { size: 11, weight: 600 }
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: 600 } }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const idx = ctx.dataIndex;
+                  const p = presents[idx] || 0;
+                  const t = totals[idx] || 0;
+                  return ` Turnout: ${ctx.raw}% (${p}/${t} students)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+  });
+</script>
+{% endblock %}

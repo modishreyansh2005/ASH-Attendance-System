@@ -1,0 +1,735 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Attendance Register | Ash Education{% endblock %}
+{% block page_heading %}Daily Attendance Register{% endblock %}
+{% block page_subheading %}Review daily class attendance logs, camera check-ins, and manual status adjustments{%
+endblock %}
+
+{% block content %}
+<!-- Filter & Date Header -->
+<div class="card" style="margin-bottom:24px; padding:18px 24px;">
+  <form method="GET" action="{{ url_for('attendance_logs') }}"
+    style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <!-- Date picker and Quick Date Shortcuts -->
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <label for="log-date" style="font-size:12px; font-weight:600; color:var(--text-muted);">Attendance Date:</label>
+      <input type="date" id="log-date" name="date" class="form-control" value="{{ selected_date }}" style="width:160px;"
+        onchange="this.form.submit()">
+
+      <!-- Quick date shortcuts -->
+      <a href="{{ url_for('attendance_logs', date=yesterday_date, grade=selected_grade) }}"
+         class="btn btn-secondary btn-sm {% if selected_date == yesterday_date %}btn-date-active{% endif %}"
+         style="padding:5px 12px; font-size:12px; font-weight:700; text-decoration:none;"
+         title="Jump to Yesterday's Attendance ({{ yesterday_date }})">
+        📅 Yesterday ({{ yesterday_date }})
+      </a>
+
+      <a href="{{ url_for('attendance_logs', date=today_date, grade=selected_grade) }}"
+         class="btn btn-secondary btn-sm {% if selected_date == today_date %}btn-date-active{% endif %}"
+         style="padding:5px 12px; font-size:12px; font-weight:700; text-decoration:none;"
+         title="Jump to Today's Attendance ({{ today_date }})">
+        📅 Today
+      </a>
+    </div>
+
+    <!-- Quick Actions -->
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <!-- Quick Mark All Present Button -->
+      <button type="button" class="btn btn-sm" onclick="markAllPresent('{{ selected_date }}')"
+              style="background:#10b981; color:white; border:none; font-weight:700; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(16,185,129,0.3); cursor:pointer;"
+              title="Quickly fill attendance by marking all active students as Present for {{ selected_date }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>⚡ Mark All Present</span>
+      </button>
+
+      <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        <span>Print Sheet</span>
+      </button>
+
+      <a href="{{ url_for('export_csv', start_date=selected_date, end_date=selected_date, grade=selected_grade) }}"
+        class="btn btn-primary btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Export CSV</span>
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- Daily Roster Table -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="color:var(--primary);">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        Attendance Register for {{ selected_date }}
+      </div>
+      <div class="card-subtitle">Click status dropdown in any row to manually mark or adjust attendance status</div>
+    </div>
+  </div>
+
+  {% if records and records|length > 0 %}
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Student Profile</th>
+          <th>Roll No</th>
+          <th>Class</th>
+          <th>Current Status</th>
+          <th>Check-in Time</th>
+          <th>Detection Method</th>
+          <th>Attendance %</th>
+          <th style="text-align:right;">Quick Status Override</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr id="row-{{ r.student_id }}">
+          <td>
+            <div class="student-cell">
+              <img src="{{ r.photo_path or url_for('static', filename='img/avatar_default.png') }}"
+                class="student-avatar" alt="{{ r.full_name }}"
+                onerror="this.src='https://ui-avatars.com/api/?name={{ r.full_name }}&background=E0E7FF&color=4338CA'">
+              <div class="student-meta">
+                <div class="name" id="name-{{ r.student_id }}">
+                  {{ r.full_name }}
+                  {% if r.gender and r.gender|lower in ['male', 'boy', 'm'] %}
+                    <span class="gender-tag-pill boy" style="font-size:10px; padding:1px 6px; margin-left:4px;">👦 Boy</span>
+                  {% elif r.gender and r.gender|lower in ['female', 'girl', 'f'] %}
+                    <span class="gender-tag-pill girl" style="font-size:10px; padding:1px 6px; margin-left:4px;">👧 Girl</span>
+                  {% endif %}
+                </div>
+                <div class="sub">{{ r.student_id }}</div>
+                <div
+                  style="font-size:11px; color:#2563eb; font-weight:600; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path
+                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                    </path>
+                  </svg>
+                  <span>Parent:</span> <span id="phone-{{ r.student_id }}">{{ r.parent_phone or r.guardian_phone or 'No
+                    phone' }}</span>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td><strong id="roll-{{ r.student_id }}">{{ r.roll_no }}</strong></td>
+          <td><span id="class-{{ r.student_id }}">{{ r.grade }} - {{ r.section }}</span></td>
+          <td id="status-cell-{{ r.student_id }}">
+            {% if r.attendance_status == 'Present' %}
+            <span class="badge badge-present">✓ Present</span>
+            {% else %}
+            <span class="badge badge-absent">✕ Absent</span>
+            {% endif %}
+          </td>
+          <td id="time-cell-{{ r.student_id }}">
+            <strong>{{ r.time or '--' }}</strong>
+          </td>
+          <td id="method-cell-{{ r.student_id }}">
+            {% if r.method == 'Camera-OpenCV' %}
+            <span
+              style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--primary); font-weight:600;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              Face AI Scan
+            </span>
+            {% elif r.method %}
+            <span style="font-size:12px; color:var(--text-muted);">{{ r.method }}</span>
+            {% else %}
+            <span style="color:var(--text-light); font-size:12px;">Not Checked In</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="attendance-rate {% if (r.attendance_percentage or 0) >= 75 %}rate-high{% elif (r.attendance_percentage or 0) >= 50 %}rate-mid{% else %}rate-low{% endif %}">
+              {{ r.attendance_percentage or 0.0 }}%
+            </span>
+          </td>
+          <td style="text-align:right;">
+            <div style="display:inline-flex; flex-direction:column; align-items:flex-end; gap:5px;">
+              <select class="form-control" style="width:130px; font-size:12px; padding:4px 8px;"
+                onchange="updateStatus('{{ r.student_id }}', this.value, '{{ selected_date }}')">
+                <option value="Present" {% if r.attendance_status == 'Present' %}selected{% endif %}>✓ Present</option>
+                <option value="Absent" {% if r.attendance_status != 'Present' %}selected{% endif %}>✕ Absent</option>
+              </select>
+
+              <div id="wa-btn-container-{{ r.student_id }}">
+                {% if r.attendance_status != 'Present' %}
+                <button type="button" class="btn btn-sm btn-wa-trigger" id="btn-wa-{{ r.student_id }}"
+                  data-id="{{ r.student_id }}"
+                  data-name="{{ r.full_name }}"
+                  data-phone="{{ r.parent_phone or r.guardian_phone or '' }}"
+                  data-roll="{{ r.roll_no }}"
+                  data-grade="{{ r.grade }}"
+                  data-section="{{ r.section }}"
+                  data-date="{{ selected_date }}"
+                  onclick="triggerSingleWhatsAppFromBtn(this)"
+                  style="background:#25D366; color:white; font-size:11px; font-weight:700; padding:3px 9px; border:none; border-radius:var(--radius-sm); display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(37,211,102,0.25); cursor:pointer;"
+                  title="Send WhatsApp attendance alert to parent">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z" />
+                  </svg>
+                  {% if r.whatsapp_sent %}
+                  <span>✓ Sent</span>
+                  {% else %}
+                  <span>WhatsApp Parent</span>
+                  {% endif %}
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center; padding:40px; color:var(--text-muted);">
+    <p>No student records enrolled for this grade.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- WhatsApp Absent Alerts Dispatcher Modal -->
+<div id="whatsapp-modal" class="modal-backdrop"
+  style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:1100; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px);">
+  <div class="card"
+    style="width:100%; max-width:680px; max-height:90vh; display:flex; flex-direction:column; padding:24px; border-radius:18px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); animation:modalIn 0.25s ease;">
+    <!-- Modal Header -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div
+          style="width:42px; height:42px; border-radius:12px; background:#25D366; color:white; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(37,211,102,0.4);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z" />
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;">WhatsApp Absent Alerts</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0 0;">Automatic attendance alert dispatcher
+            for parents of absent students</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeWhatsAppModal()"
+        style="background:none; border:none; font-size:24px; cursor:pointer; color:#64748b; line-height:1;">&times;</button>
+    </div>
+
+    <!-- Summary Strip -->
+    <div
+      style="display:flex; justify-content:space-between; align-items:center; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:var(--radius-md); padding:10px 16px; margin-bottom:14px;">
+      <span style="font-size:13px; font-weight:700; color:#166534;">
+        Absent Students Today: <span id="wa-modal-count">0</span>
+      </span>
+      <span style="font-size:12px; color:#15803d; font-weight:600;">
+        Date: <strong>{{ selected_date }}</strong>
+      </span>
+    </div>
+
+    <!-- Message Preview Box -->
+    <div
+      style="background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:14px;">
+      <div
+        style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+        Notification Template (Sent to Parent's WhatsApp):
+      </div>
+      <div
+        style="font-size:12px; color:#334155; line-height:1.5; font-family:monospace; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+        🏫 *Ash Education - હાજરી એલર્ટ (Attendance Alert)*<br>
+        આદરણીય વાલીશ્રી,<br>
+        આ *Ash Education* તરફથી હાજરી અંગેનો સત્તાવાર સંદેશ છે.<br>
+        આપનો પાલ્ય *[વિદ્યાર્થીનું નામ]* (રોલ નં: [Roll], ધોરણ: [Class]) આજે તારીખ {{ selected_date }} ના રોજ શાળામાં *ગેરહાજર (ABSENT)* નોંધાયેલ છે.<br>
+        જો આપને આ ગેરહાજરી અંગે પૂર્વ જાણ ન હોય, તો કૃપા કરીને તાત્કાલિક શાળાના વહીવટી વિભાગનો સંપર્ક કરશો.<br>
+        લિ., *Ash Education સ્કૂલ વહીવટી વિભાગ*
+      </div>
+    </div>
+
+    <!-- Absent Students List -->
+    <div
+      style="overflow-y:auto; flex:1; max-height:260px; border:1px solid var(--border-color); border-radius:var(--radius-md); margin-bottom:16px;">
+      <table class="custom-table" style="margin:0; font-size:12.5px;">
+        <thead style="position:sticky; top:0; background:#f8fafc; z-index:2;">
+          <tr>
+            <th>Student</th>
+            <th>Roll / Class</th>
+            <th>Parent Number</th>
+            <th style="text-align:right;">WhatsApp Action</th>
+          </tr>
+        </thead>
+        <tbody id="wa-modal-tbody">
+          <tr>
+            <td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Loading absent students...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div
+      style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid var(--border-light); flex-wrap:wrap; gap:10px;">
+      <div id="wa-batch-status" style="font-size:12px; color:var(--text-muted); font-weight:600;"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyAllAbsentMessages()"
+          title="Copy all formatted messages to clipboard">📋 Copy All</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeWhatsAppModal()">Close</button>
+        <button type="button" id="btn-auto-send-all" class="btn btn-sm"
+          style="background:#25D366; color:white; font-weight:700; border:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(37,211,102,0.35); cursor:pointer;"
+          onclick="autoSendAllAbsentWhatsApp()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z" />
+          </svg>
+          <span>🚀 Auto-Send to All Absent Parents</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Action Notification Banner -->
+<div id="wa-quick-banner"
+  style="display:none; position:fixed; bottom:24px; right:24px; background:#0f172a; color:#ffffff; padding:14px 20px; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,0.35); z-index:1050; align-items:center; gap:14px; animation:slideUp 0.3s ease;">
+  <span id="wa-banner-text" style="font-size:13px; font-weight:600;">Student marked Absent</span>
+  <button type="button" id="wa-banner-action-btn" class="btn btn-sm"
+    style="background:#25D366; color:white; font-weight:700; border:none; padding:5px 12px; font-size:12px; border-radius:6px; cursor:pointer;">
+    📲 Send WhatsApp Now
+  </button>
+  <button type="button" onclick="document.getElementById('wa-quick-banner').style.display='none'"
+    style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; line-height:1;">&times;</button>
+</div>
+
+<style>
+  @keyframes modalIn {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  .btn-date-active {
+    background: #2563eb !important;
+    color: white !important;
+    border-color: #2563eb !important;
+  }
+</style>
+
+<script>
+  const CURRENT_DATE = "{{ selected_date }}";
+  const SELECTED_GRADE = "{{ selected_grade }}";
+  let cachedAbsentStudents = [];
+
+  function triggerSingleWhatsAppFromBtn(btn) {
+    const d = btn.dataset;
+    sendSingleWhatsApp(d.id, d.name, d.phone, d.roll, d.grade, d.section, d.date);
+  }
+
+  // Batch mark all active students as Present for the active date
+  async function markAllPresent(targetDate) {
+    if (!confirm(`Are you sure you want to mark all students as Present for ${targetDate}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/mark-all-present', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: targetDate, grade: SELECTED_GRADE })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || `Successfully marked all students present for ${targetDate}!`);
+        location.reload();
+      } else {
+        alert("Error: " + (data.message || "Failed to update attendance"));
+      }
+    } catch (err) {
+      alert("Network error: " + err.message);
+    }
+  }
+
+  // Update attendance status via dropdown
+  async function updateStatus(studentId, newStatus, targetDate) {
+    if (!newStatus) return;
+    try {
+      const res = await fetch('/api/mark-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: studentId,
+          status: newStatus,
+          date: targetDate,
+          notes: 'Instructor manual update'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Update badge dynamically
+        const cell = document.getElementById(`status-cell-${studentId}`);
+        const timeCell = document.getElementById(`time-cell-${studentId}`);
+        const methodCell = document.getElementById(`method-cell-${studentId}`);
+        const waContainer = document.getElementById(`wa-btn-container-${studentId}`);
+        const studentName = document.getElementById(`name-${studentId}`)?.innerText || 'Student';
+        const parentPhone = document.getElementById(`phone-${studentId}`)?.innerText || '';
+        const rollNo = document.getElementById(`roll-${studentId}`)?.innerText || '';
+        const classSection = document.getElementById(`class-${studentId}`)?.innerText || '';
+
+        if (newStatus === 'Present') {
+          cell.innerHTML = '<span class="badge badge-present">✓ Present</span>';
+          if (waContainer) waContainer.innerHTML = '';
+        } else {
+          cell.innerHTML = '<span class="badge badge-absent">✕ Absent</span>';
+          if (waContainer) {
+            waContainer.innerHTML = `
+              <button type="button" class="btn btn-sm" id="btn-wa-${studentId}"
+                onclick="sendSingleWhatsApp('${studentId}', '${studentName.replace(/'/g, "\\'")}', '${parentPhone}', '${rollNo}', '', '', '${targetDate}')"
+                style="background:#25D366; color:white; font-size:11px; font-weight:700; padding:3px 9px; border:none; border-radius:var(--radius-sm); display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(37,211,102,0.25); cursor:pointer;"
+                title="Send WhatsApp attendance alert to parent">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/></svg>
+                <span>WhatsApp Parent</span>
+              </button>
+            `;
+          }
+
+          // Show floating quick-send notification
+          showQuickWhatsAppBanner(studentId, studentName, parentPhone, rollNo, targetDate);
+        }
+
+        const now = new Date().toLocaleTimeString();
+        timeCell.innerHTML = `<strong>${now}</strong>`;
+        methodCell.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Manual</span>';
+      }
+    } catch (err) {
+      alert('Error updating status: ' + err);
+    }
+  }
+
+  // Floating banner for instant WhatsApp alert
+  function showQuickWhatsAppBanner(studentId, studentName, phone, roll, targetDate) {
+    const banner = document.getElementById('wa-quick-banner');
+    const bannerText = document.getElementById('wa-banner-text');
+    const bannerBtn = document.getElementById('wa-banner-action-btn');
+
+    bannerText.innerText = `${studentName} marked Absent. Notify Parent?`;
+    bannerBtn.onclick = () => {
+      sendSingleWhatsApp(studentId, studentName, phone, roll, '', '', targetDate);
+      banner.style.display = 'none';
+    };
+
+    banner.style.display = 'flex';
+    setTimeout(() => {
+      banner.style.display = 'none';
+    }, 8000);
+  }
+
+  // Sanitize phone number for WhatsApp URL
+  function cleanPhoneForWhatsApp(phone) {
+    if (!phone) return "";
+    let digits = phone.replace(/\D/g, '');
+    if (!digits) return "";
+    if (digits.length === 10) {
+      if (['6', '7', '8', '9'].includes(digits[0])) {
+        return '91' + digits;
+      } else {
+        return '1' + digits;
+      }
+    }
+    if (digits.length === 11 && digits.startsWith('0')) {
+      return '91' + digits.substring(1);
+    }
+    return digits;
+  }
+
+  // Send single WhatsApp alert to one student's parent
+  async function sendSingleWhatsApp(studentId, studentName, phone, roll, grade, section, targetDate) {
+    const cleanPhone = cleanPhoneForWhatsApp(phone);
+    if (!cleanPhone) {
+      alert(`No valid phone number found for ${studentName}'s parent.`);
+      return;
+    }
+
+    const message = `🏫 *Ash Education - હાજરી એલર્ટ (Attendance Alert)*\n\nઆદરણીય વાલીશ્રી,\n\nઆ *Ash Education* તરફથી હાજરી અંગેનો સત્તાવાર સંદેશ છે.\nઆપનો પાલ્ય *${studentName}* (રોલ નં: ${roll || '--'}) આજે તારીખ ${targetDate} ના રોજ શાળામાં *ગેરહાજર (ABSENT)* નોંધાયેલ છે.\n\nજો આપને આ ગેરહાજરી અંગે પૂર્વ જાણ ન હોય અથવા કોઈ કારણ જણાવવાનું બાકી હોય, તો કૃપા કરીને તાત્કાલિક શાળાના વહીવટી વિભાગનો સંપર્ક કરશો.\n\nઆભાર સહ,\n*Ash Education સ્કૂલ વહીવટી વિભાગ*`;
+
+    // Log to backend
+    try {
+      await fetch('/api/whatsapp/log-sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: studentId,
+          student_name: studentName,
+          parent_phone: phone,
+          message: message,
+          date: targetDate
+        })
+      });
+    } catch (e) {
+      console.warn('Logging error:', e);
+    }
+
+    // Launch WhatsApp
+    const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+
+    // Update button text to ✓ Sent
+    const btn = document.getElementById(`btn-wa-${studentId}`);
+    if (btn) {
+      btn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>✓ Sent</span>
+      `;
+      btn.style.background = '#15803d';
+    }
+  }
+
+  // Open the Bulk WhatsApp Absent Modal
+  async function openWhatsAppModal() {
+    const modal = document.getElementById('whatsapp-modal');
+    const tbody = document.getElementById('wa-modal-tbody');
+    const countEl = document.getElementById('wa-modal-count');
+    const statusEl = document.getElementById('wa-batch-status');
+
+    modal.style.display = 'flex';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#64748b;">Loading absent students...</td></tr>';
+    statusEl.innerText = '';
+
+    try {
+      const res = await fetch(`/api/whatsapp/absent-list?date=${CURRENT_DATE}`);
+      const data = await res.json();
+      if (data.success) {
+        cachedAbsentStudents = data.absent_students || [];
+        countEl.innerText = cachedAbsentStudents.length;
+
+        if (cachedAbsentStudents.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:28px; color:#16a34a; font-weight:600;">🎉 All students are marked Present today! No absent notifications needed.</td></tr>';
+          document.getElementById('btn-auto-send-all').style.display = 'none';
+          return;
+        }
+
+        document.getElementById('btn-auto-send-all').style.display = 'inline-flex';
+        renderModalTable(cachedAbsentStudents);
+      }
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#dc2626;">Failed to load absent list: ${e}</td></tr>`;
+    }
+  }
+
+  // Render rows inside the modal table
+  function renderModalTable(students) {
+    const tbody = document.getElementById('wa-modal-tbody');
+    tbody.innerHTML = students.map((s, idx) => `
+      <tr id="modal-row-${s.student_id}">
+        <td>
+          <div style="font-weight:700; color:#0f172a;">${s.full_name}</div>
+          <div style="font-size:11px; color:#64748b; font-family:monospace;">${s.student_id}</div>
+        </td>
+        <td>
+          <div style="font-weight:600;">Roll: ${s.roll_no}</div>
+          <div style="font-size:11px; color:#64748b;">${s.grade} - ${s.section}</div>
+        </td>
+        <td>
+          <div style="font-weight:600; color:#2563eb;">📞 ${s.parent_phone || 'No phone'}</div>
+        </td>
+        <td style="text-align:right;">
+          <a href="${s.whatsapp_url}" target="_blank"
+            onclick="markRowSent('${s.student_id}', '${s.full_name}', '${s.parent_phone}')"
+            id="modal-wa-btn-${s.student_id}"
+            class="btn btn-sm"
+            style="background:${s.already_sent ? '#15803d' : '#25D366'}; color:white; font-size:11px; font-weight:700; padding:4px 10px; border:none; border-radius:6px; display:inline-flex; align-items:center; gap:5px; text-decoration:none; box-shadow:0 2px 4px rgba(37,211,102,0.25);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/></svg>
+            <span>${s.already_sent ? '✓ Notified' : 'Send Alert'}</span>
+          </a>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Mark modal row as sent
+  async function markRowSent(studentId, name, phone) {
+    const btn = document.getElementById(`modal-wa-btn-${studentId}`);
+    if (btn) {
+      btn.style.background = '#15803d';
+      btn.innerHTML = '<span>✓ Notified</span>';
+    }
+    // Also update main table row button
+    const mainBtn = document.getElementById(`btn-wa-${studentId}`);
+    if (mainBtn) {
+      mainBtn.style.background = '#15803d';
+      mainBtn.innerHTML = '<span>✓ Sent</span>';
+    }
+
+    try {
+      await fetch('/api/whatsapp/log-sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: studentId,
+          student_name: name,
+          parent_phone: phone,
+          date: CURRENT_DATE
+        })
+      });
+    } catch (e) { }
+  }
+
+  // Automated Sequential Dispatch to all absent parents
+  async function autoSendAllAbsentWhatsApp() {
+    if (!cachedAbsentStudents || cachedAbsentStudents.length === 0) return;
+
+    const btn = document.getElementById('btn-auto-send-all');
+    const statusEl = document.getElementById('wa-batch-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span>Dispatching Alerts...</span>';
+
+    // Log all to backend
+    try {
+      await fetch('/api/whatsapp/send-all-absent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: CURRENT_DATE })
+      });
+    } catch (e) {
+      console.warn('Backend batch log error:', e);
+    }
+
+    // Sequentially open WhatsApp link for each absent parent
+    for (let i = 0; i < cachedAbsentStudents.length; i++) {
+      const s = cachedAbsentStudents[i];
+      statusEl.innerText = `Sending ${i + 1} of ${cachedAbsentStudents.length}: ${s.full_name}...`;
+      markRowSent(s.student_id, s.full_name, s.parent_phone);
+
+      if (s.whatsapp_url) {
+        window.open(s.whatsapp_url, '_blank');
+      }
+
+      // 1.2 second pause between dispatches to allow browser to open tab cleanly
+      if (i < cachedAbsentStudents.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
+    }
+
+    statusEl.innerHTML = `<span style="color:#16a34a;">✓ All ${cachedAbsentStudents.length} absent alerts dispatched successfully!</span>`;
+    btn.disabled = false;
+    btn.innerHTML = '<span>✓ Dispatched All</span>';
+    btn.style.background = '#15803d';
+  }
+
+  // 1-Trigger Direct Auto-Message to All Absent Parents
+  async function oneTriggerSendAllAbsentWhatsApp() {
+    const btn = document.getElementById('btn-one-trigger-wa');
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-icon" style="animation:spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"></path></svg>
+        <span>Sending WhatsApp Alerts...</span>
+      `;
+    }
+
+    try {
+      // 1. Fetch absent list for today
+      const res = await fetch(`/api/whatsapp/absent-list?date=${CURRENT_DATE}`);
+      const data = await res.json();
+
+      if (!data.success || !data.absent_students || data.absent_students.length === 0) {
+        alert('🎉 All students are marked Present today! No absent notifications needed.');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+        return;
+      }
+
+      cachedAbsentStudents = data.absent_students;
+
+      // 2. Open WhatsApp modal with details
+      const modal = document.getElementById('whatsapp-modal');
+      const countEl = document.getElementById('wa-modal-count');
+      modal.style.display = 'flex';
+      countEl.innerText = cachedAbsentStudents.length;
+      renderModalTable(cachedAbsentStudents);
+
+      // 3. Immediately trigger sequential dispatch
+      await autoSendAllAbsentWhatsApp();
+
+    } catch (err) {
+      alert('Error in WhatsApp Notification Dispatch: ' + err);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
+    }
+  }
+
+  // Copy all formatted absent messages to clipboard
+  function copyAllAbsentMessages() {
+    if (!cachedAbsentStudents || cachedAbsentStudents.length === 0) {
+      alert('No absent students loaded.');
+      return;
+    }
+    const combined = cachedAbsentStudents.map(s =>
+      `To: ${s.full_name}'s Parent (${s.parent_phone})\n${s.message}`
+    ).join('\n\n-----------------------------\n\n');
+
+    navigator.clipboard.writeText(combined).then(() => {
+      alert(`✓ Copied ${cachedAbsentStudents.length} formatted absent notifications to clipboard!`);
+    }).catch(err => {
+      prompt('Copy the messages below:', combined);
+    });
+  }
+
+  function closeWhatsAppModal() {
+    document.getElementById('whatsapp-modal').style.display = 'none';
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+    const modal = document.getElementById('whatsapp-modal');
+    if (e.target === modal) {
+      closeWhatsAppModal();
+    }
+  });
+
+  // Check if triggered automatically from Dashboard via URL parameter
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('trigger_wa') === '1') {
+      setTimeout(() => {
+        oneTriggerSendAllAbsentWhatsApp();
+      }, 500);
+    }
+  });
+</script>
+{% endblock %}

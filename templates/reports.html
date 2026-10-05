@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Reports & Analytics | Ash Education{% endblock %}
+{% block page_heading %}Attendance Reports & Export{% endblock %}
+{% block page_subheading %}Historical attendance analytics, class-wide attendance trends, and CSV data export{% endblock %}
+
+{% block content %}
+<!-- Filter Controls -->
+<div class="card" style="margin-bottom:24px; padding:18px 24px;">
+  <form method="GET" action="{{ url_for('reports') }}" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="start-date" style="font-size:12px; font-weight:600; color:var(--text-muted);">From:</label>
+        <input type="date" id="start-date" name="start_date" class="form-control" value="{{ start_date }}" style="width:150px;" onchange="this.form.submit()">
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="end-date" style="font-size:12px; font-weight:600; color:var(--text-muted);">To:</label>
+        <input type="date" id="end-date" name="end_date" class="form-control" value="{{ end_date }}" style="width:150px;" onchange="this.form.submit()">
+      </div>
+    </div>
+
+    <div>
+      <a href="{{ url_for('export_csv', start_date=start_date, end_date=end_date, grade='All') }}" class="btn btn-success">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Download Official CSV</span>
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- Report Summary Cards -->
+<div class="stats-grid" style="margin-bottom:24px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <h3>{{ total_logs }}</h3>
+      <p>Total Recorded Attendances</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <h3>{{ present_cnt }}</h3>
+      <p>Verified Present</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff; color:#2563eb;">
+      <span style="font-size:22px;">👦</span>
+    </div>
+    <div class="stat-content">
+      <h3 style="color:#1d4ed8;">{{ boys_present }}</h3>
+      <p>Boys Present (Check-ins)</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf2f8; color:#be185d;">
+      <span style="font-size:22px;">👧</span>
+    </div>
+    <div class="stat-content">
+      <h3 style="color:#be185d;">{{ girls_present }}</h3>
+      <p>Girls Present (Check-ins)</p>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon rose">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <h3>{{ absent_cnt }}</h3>
+      <p>Absents</p>
+    </div>
+  </div>
+</div>
+
+<!-- Detailed Records Table -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        </svg>
+        Filtered Logs ({{ start_date }} to {{ end_date }})
+      </div>
+      <div class="card-subtitle">Showing all verified check-ins and roll entries</div>
+    </div>
+  </div>
+
+  {% if records and records|length > 0 %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Student Name</th>
+            <th>Gender</th>
+            <th>ID Code</th>
+            <th>Class</th>
+            <th>Roll No</th>
+            <th>Status</th>
+            <th>Method</th>
+            <th>Confidence</th>
+            <th>Parent Phone</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+            <tr>
+              <td><strong>{{ r.date }}</strong></td>
+              <td>{{ r.time }}</td>
+              <td><strong>{{ r.full_name }}</strong></td>
+              <td>
+                {% if r.gender and r.gender|lower in ['male', 'boy', 'm'] %}
+                  <span class="gender-tag-pill boy">👦 Boy</span>
+                {% elif r.gender and r.gender|lower in ['female', 'girl', 'f'] %}
+                  <span class="gender-tag-pill girl">👧 Girl</span>
+                {% else %}
+                  <span class="gender-tag-pill other">{{ r.gender or 'N/A' }}</span>
+                {% endif %}
+              </td>
+              <td><span style="font-family:monospace; color:var(--primary); font-weight:600;">{{ r.student_id }}</span></td>
+              <td>{{ r.grade }} - {{ r.section }}</td>
+              <td>{{ r.roll_no }}</td>
+              <td>
+                {% if r.status == 'Present' %}
+                  <span class="badge badge-present">✓ Present</span>
+                {% elif r.status == 'Late' %}
+                  <span class="badge badge-late">⏱ Late</span>
+                {% else %}
+                  <span class="badge badge-excused">{{ r.status }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-size:12px; color:var(--text-muted);">{{ r.method }}</span>
+              </td>
+              <td>
+                {% if r.confidence and r.confidence > 0 %}
+                  <span style="font-weight:700; color:var(--success);">{{ r.confidence }}%</span>
+                {% else %}
+                  <span style="color:var(--text-light); font-size:12px;">--</span>
+                {% endif %}
+              </td>
+              <td>{{ r.guardian_phone or 'N/A' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align:center; padding:40px; color:var(--text-muted);">
+      <p>No records found for the selected date range and filters.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

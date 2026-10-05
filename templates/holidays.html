@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Monthly Holidays & Academic Calendar | Ash Education{% endblock %}
+{% block page_title %}Monthly Holidays & Academic Calendar{% endblock %}
+{% block page_subtitle %}Official institutional recess schedule, gazetted festival observances, and instructional school days{% endblock %}
+
+{% block content %}
+<!-- Flash Feedback Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div style="margin-bottom:20px;">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category if category != 'error' else 'danger' }}" style="padding:12px 18px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; background:{% if category == 'success' %}#ecfdf5; border:1px solid #a7f3d0; color:#065f46;{% else %}#fef2f2; border:1px solid #fecaca; color:#991b1b;{% endif %};">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span>{% if category == 'success' %}✓{% else %}⚠️{% endif %}</span>
+            <span style="font-weight:600; font-size:13.5px;">{{ message }}</span>
+          </div>
+          <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:16px; color:inherit;">&times;</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- 1. Monthly Navigation & Control Header -->
+<div class="holiday-controls-bar">
+  <!-- Month Picker & Steppers -->
+  <div class="month-nav-group">
+    <a href="{{ url_for('holidays_view', year=prev_year, month=prev_month) }}" class="btn-month-nav" title="Previous Month">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </a>
+
+    <div class="current-month-display">
+      {{ month_name_full }}
+    </div>
+
+    <a href="{{ url_for('holidays_view', year=next_year, month=next_month) }}" class="btn-month-nav" title="Next Month">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </a>
+
+    <!-- Quick "Today" Jump Button -->
+    <a href="{{ url_for('holidays_view', year=today_year, month=today_month) }}" class="btn btn-secondary btn-sm" style="font-size:12px; font-weight:700; padding:6px 14px;">
+      Today
+    </a>
+  </div>
+
+  <!-- Action Buttons -->
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()" title="Print Monthly Academic Calendar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      <span>Print Calendar</span>
+    </button>
+
+    <button type="button" class="btn btn-primary btn-sm" onclick="openAddHolidayModal()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span>Add School Holiday</span>
+    </button>
+  </div>
+</div>
+
+<!-- 2. Monthly Summary Metric Cards -->
+<div class="holiday-kpi-grid">
+  <!-- Metric 1: Total Holidays -->
+  <div class="kpi-card" style="padding:18px 20px;">
+    <div class="kpi-top">
+      <div class="kpi-icon-wrap blue" style="width:38px; height:38px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </div>
+      <span class="kpi-tag blue">{{ month_name }}</span>
+    </div>
+    <div class="kpi-value-block" style="margin-top:10px;">
+      <h3 style="font-size:26px;">{{ total_holidays }}</h3>
+      <p>Scheduled School Holidays</p>
+    </div>
+    <div class="kpi-footer-note" style="margin-top:8px;">
+      <span>Academic Calendar</span>
+      <strong>{{ total_days_in_month }} Days in Month</strong>
+    </div>
+  </div>
+
+  <!-- Metric 2: Festivals & Cultural Breaks -->
+  <div class="kpi-card" style="padding:18px 20px;">
+    <div class="kpi-top">
+      <div class="kpi-icon-wrap amber" style="width:38px; height:38px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+      </div>
+      <span class="kpi-tag amber">Festivals &amp; Events</span>
+    </div>
+    <div class="kpi-value-block" style="margin-top:10px;">
+      <h3 style="font-size:26px;">{{ festival_count }}</h3>
+      <p>Festival &amp; Cultural Breaks</p>
+    </div>
+    <div class="kpi-footer-note" style="margin-top:8px;">
+      <span>National Gazetted</span>
+      <strong>{{ national_count }} Days</strong>
+    </div>
+  </div>
+
+  <!-- Metric 3: Instructional Working Days -->
+  <div class="kpi-card" style="padding:18px 20px;">
+    <div class="kpi-top">
+      <div class="kpi-icon-wrap emerald" style="width:38px; height:38px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <span class="kpi-tag emerald">Active Roster</span>
+    </div>
+    <div class="kpi-value-block" style="margin-top:10px;">
+      <h3 style="font-size:26px;">{{ working_days }}</h3>
+      <p>Instructional Working Days</p>
+    </div>
+    <div class="kpi-footer-note" style="margin-top:8px;">
+      <span>School Schedule</span>
+      <strong>Classes Operating</strong>
+    </div>
+  </div>
+
+  <!-- Metric 4: Sundays & Weekends -->
+  <div class="kpi-card" style="padding:18px 20px;">
+    <div class="kpi-top">
+      <div class="kpi-icon-wrap rose" style="width:38px; height:38px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <span class="kpi-tag rose">Weekly Rest</span>
+    </div>
+    <div class="kpi-value-block" style="margin-top:10px;">
+      <h3 style="font-size:26px;">{{ sundays_count }}</h3>
+      <p>Weekend Rest Sundays</p>
+    </div>
+    <div class="kpi-footer-note" style="margin-top:8px;">
+      <span>Campus Closed</span>
+      <strong>All Divisions</strong>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Main Calendar & Agenda Layout -->
+<div class="holiday-layout-grid">
+  <!-- Left Side: Interactive 7-Day Calendar Grid -->
+  <div class="calendar-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border-light);">
+      <h3 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0; display:flex; align-items:center; gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        <span>Monthly Calendar Grid — {{ month_name_full }}</span>
+      </h3>
+
+      <div style="display:flex; align-items:center; gap:12px; font-size:11.5px; font-weight:600; color:var(--text-muted);">
+        <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#2563eb;"></span> National</span>
+        <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span> Festival</span>
+        <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#9333ea;"></span> Religious</span>
+        <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Academic</span>
+      </div>
+    </div>
+
+    <!-- Weekday Header (Sunday - Saturday) -->
+    <div class="calendar-weekdays-row">
+      <div class="weekday-header sunday">Sun</div>
+      <div class="weekday-header">Mon</div>
+      <div class="weekday-header">Tue</div>
+      <div class="weekday-header">Wed</div>
+      <div class="weekday-header">Thu</div>
+      <div class="weekday-header">Fri</div>
+      <div class="weekday-header">Sat</div>
+    </div>
+
+    <!-- Month Days Grid -->
+    <div class="calendar-days-grid">
+      {% for week in month_days %}
+        {% for day in week %}
+          {% if day == 0 %}
+            <!-- Blank padding cell -->
+            <div class="calendar-day-cell empty-day"></div>
+          {% else %}
+            {% set day_hols = holiday_by_day.get(day, []) %}
+            {% set is_sun = loop.index0 == 0 %}
+            {% set is_today_cell = (current_year == today_year and current_month == today_month and day == today_day) %}
+
+            <div class="calendar-day-cell {% if is_sun %}sunday-cell{% endif %} {% if day_hols|length > 0 %}has-holiday{% endif %} {% if is_today_cell %}is-today{% endif %}">
+              <div class="day-cell-top">
+                <span class="day-number {% if is_sun %}sunday-num{% endif %}">{{ day }}</span>
+                {% if is_today_cell %}
+                  <span class="today-chip">Today</span>
+                {% elif is_sun %}
+                  <span style="font-size:9.5px; font-weight:700; color:#ef4444; text-transform:uppercase;">Weekend</span>
+                {% endif %}
+              </div>
+
+              <!-- Holiday tags inside cell -->
+              {% for h in day_hols %}
+                <div class="holiday-pill type-{{ h.holiday_type }}" title="{{ h.title }}: {{ h.description or h.holiday_type }}">
+                  <span>{{ h.title }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Side: Holiday Agenda & Details List -->
+  <div>
+    <div class="agenda-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-light);">
+        <h3 style="font-size:15px; font-weight:800; color:var(--text-main); margin:0;">
+          {{ month_name }} Holiday Agenda
+        </h3>
+        <span class="badge" style="background:#eff6ff; color:#2563eb; font-weight:700; font-size:11px;">
+          {{ month_holidays|length }} Listed
+        </span>
+      </div>
+
+      {% if month_holidays and month_holidays|length > 0 %}
+        <div>
+          {% for h in month_holidays %}
+            <div class="agenda-item-box">
+              <div class="agenda-item-top">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div class="agenda-date-badge">
+                    <span class="date-day">{{ h.holiday_date.split('-')[2] }}</span>
+                    <span class="date-month">{{ month_name[:3] }}</span>
+                  </div>
+                  <div class="agenda-info">
+                    <h4>{{ h.title }}</h4>
+                    <p>{{ h.description or (h.holiday_type ~ ' Holiday') }}</p>
+                  </div>
+                </div>
+
+                <!-- Delete Action Form -->
+                <form method="POST" action="{{ url_for('api_delete_holiday', holiday_id=h.id) }}" onsubmit="return confirm('Remove holiday {{ h.title }}?')" style="margin:0;">
+                  <button type="submit" style="background:none; border:none; color:#94a3b8; hover:color:#ef4444; cursor:pointer; font-size:16px; padding:2px 6px;" title="Delete Holiday">
+                    &times;
+                  </button>
+                </form>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:2px;">
+                <span class="badge" style="
+                  {% if h.holiday_type == 'National' %}background:#eff6ff; color:#1d4ed8;
+                  {% elif h.holiday_type in ['Festival', 'Religious'] %}background:#fffbeb; color:#b45309;
+                  {% else %}background:#ecfdf5; color:#047857;{% endif %} font-weight:700; font-size:10.5px;">
+                  {{ h.holiday_type }}
+                </span>
+                <span style="color:var(--text-muted); font-weight:600;">
+                  {{ h.holiday_date }}
+                </span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align:center; padding:32px 16px; color:var(--text-muted);">
+          <div style="font-size:32px; margin-bottom:8px;">🏫</div>
+          <p style="font-size:13px; font-weight:600; margin:0 0 10px 0;">No official school holidays registered for {{ month_name_full }}.</p>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddHolidayModal()" style="font-size:11.5px;">
+            + Add Holiday for {{ month_name }}
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Annual Calendar Quick Jump Strip -->
+    <div class="card" style="margin-top:20px; padding:18px 20px;">
+      <h4 style="font-size:13px; font-weight:800; color:var(--text-main); margin:0 0 12px 0;">
+        Quick Month Jump ({{ current_year }})
+      </h4>
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+        {% set months_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] %}
+        {% for m in range(1, 13) %}
+          <a href="{{ url_for('holidays_view', year=current_year, month=m) }}"
+             style="text-align:center; padding:6px 4px; font-size:11.5px; font-weight:700; text-decoration:none; border-radius:6px;
+                    {% if m == current_month %}background:var(--primary); color:#ffffff;{% else %}background:#f1f5f9; color:var(--text-main);{% endif %} transition:all 0.15s ease;">
+            {{ months_list[m - 1] }}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add School Holiday Modal -->
+<div id="add-holiday-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:1100; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px);">
+  <div class="card" style="width:100%; max-width:520px; padding:26px; border-radius:18px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); animation:modalIn 0.25s ease;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border-light);">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:38px; height:38px; border-radius:10px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0;">Add School Holiday</h3>
+          <p style="font-size:11.5px; color:var(--text-muted); margin:2px 0 0 0;">Register academic break or special gazetted holiday</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeAddHolidayModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1;">&times;</button>
+    </div>
+
+    <form method="POST" action="{{ url_for('api_add_holiday') }}">
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">Holiday Title / Occasion *</label>
+        <input type="text" name="title" required class="form-control" placeholder="e.g. Sports Day Holiday, Founder's Day..." style="width:100%; padding:9px 12px; font-size:13px;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">Holiday Date *</label>
+        <input type="date" name="holiday_date" required value="{{ current_year }}-{{ '%02d' % current_month }}-01" class="form-control" style="width:100%; padding:9px 12px; font-size:13px;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">Holiday Classification</label>
+        <select name="holiday_type" class="form-control" style="width:100%; padding:9px 12px; font-size:13px;">
+          <option value="National">National / Gazetted Holiday</option>
+          <option value="Festival">Festival &amp; Cultural Celebration</option>
+          <option value="Religious">Religious Observance</option>
+          <option value="Academic">Academic Recess / Vacation Break</option>
+          <option value="Special">Special Institutional Holiday</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:20px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">Description / Administrative Notes</label>
+        <textarea name="description" rows="2" class="form-control" placeholder="Optional notes for school register..." style="width:100%; padding:9px 12px; font-size:13px;"></textarea>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeAddHolidayModal()" style="font-size:13px; padding:8px 16px;">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-size:13px; padding:8px 18px; font-weight:700;">Save Holiday</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openAddHolidayModal() {
+    const modal = document.getElementById('add-holiday-modal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeAddHolidayModal() {
+    const modal = document.getElementById('add-holiday-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  window.addEventListener('click', function(e) {
+    const modal = document.getElementById('add-holiday-modal');
+    if (e.target === modal) closeAddHolidayModal();
+  });
+</script>
+{% endblock %}

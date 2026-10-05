@@ -1,0 +1,763 @@
+{% extends "base.html" %}
+
+{% block title %}Low Attendance & Defaulters Hub | Ash Education{% endblock %}
+{% block page_heading %}Low Attendance & Defaulters Hub{% endblock %}
+{% block page_subheading %}Track attendance shortage, enforce mandatory minimum requirements, and dispatch WhatsApp alerts to parents{% endblock %}
+
+{% block content %}
+<!-- Top Filter & Action Bar -->
+<div class="card" style="margin-bottom:24px; padding:18px 24px;">
+  <form id="filter-form" method="GET" action="{{ url_for('low_attendance_view') }}" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    
+    <!-- Controls: Threshold, Grade, View Mode -->
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <!-- Threshold Selector -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="threshold-select" style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">
+          Min Threshold:
+        </label>
+        <select id="threshold-select" name="threshold" class="form-control" style="width:160px; font-weight:700;" onchange="this.form.submit()">
+          <option value="75" {% if threshold == 75.0 %}selected{% endif %}>75% (Standard CBSE)</option>
+          <option value="80" {% if threshold == 80.0 %}selected{% endif %}>80% (Strict Rule)</option>
+          <option value="70" {% if threshold == 70.0 %}selected{% endif %}>70% (Relaxed)</option>
+          <option value="65" {% if threshold == 65.0 %}selected{% endif %}>65% (High Risk)</option>
+          <option value="50" {% if threshold == 50.0 %}selected{% endif %}>50% (Critical Only)</option>
+        </select>
+      </div>
+
+      <!-- Grade Filter -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="grade-select" style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">
+          Grade:
+        </label>
+        <select id="grade-select" name="grade" class="form-control" style="width:130px;" onchange="this.form.submit()">
+          <option value="All" {% if selected_grade == 'All' %}selected{% endif %}>All Grades</option>
+          <option value="Grade 8" {% if selected_grade == 'Grade 8' %}selected{% endif %}>Grade 8</option>
+          <option value="Grade 9" {% if selected_grade == 'Grade 9' %}selected{% endif %}>Grade 9</option>
+          <option value="Grade 10" {% if selected_grade == 'Grade 10' %}selected{% endif %}>Grade 10</option>
+          <option value="Grade 11" {% if selected_grade == 'Grade 11' %}selected{% endif %}>Grade 11</option>
+          <option value="Grade 12" {% if selected_grade == 'Grade 12' %}selected{% endif %}>Grade 12</option>
+        </select>
+      </div>
+
+      <!-- View Mode Filter -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="viewmode-select" style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">
+          Roster:
+        </label>
+        <select id="viewmode-select" name="view_mode" class="form-control" style="width:170px;" onchange="this.form.submit()">
+          <option value="defaulters" {% if view_mode == 'defaulters' %}selected{% endif %}>⚠️ Defaulters Only (&lt; {{ threshold|int }}%)</option>
+          <option value="all" {% if view_mode == 'all' %}selected{% endif %}>👥 All Students ({{ all_students_count }})</option>
+        </select>
+      </div>
+
+      <!-- Live Search Box -->
+      <div style="position:relative;">
+        <input type="text" id="live-search-input" placeholder="Search student or roll..." 
+               class="form-control" style="width:200px; padding-left:32px; font-size:12.5px;" 
+               onkeyup="filterStudentTable()">
+        <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-muted);" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <!-- Bulk WhatsApp Button -->
+      <button type="button" class="btn-whatsapp-broadcast" onclick="openBroadcastModal()" title="Send WhatsApp alert to all parents of students with attendance below {{ threshold|int }}%">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        <span>Notify All Defaulter Parents</span>
+        <span class="count-pill">{{ summary.defaulters_count }}</span>
+      </button>
+
+      <!-- Copy All Button -->
+      <button type="button" class="btn btn-secondary btn-sm" onclick="copyAllDefaulterMessages()" title="Copy all formatted notice messages to clipboard">
+        <span>📋 Copy Notices</span>
+      </button>
+
+      <!-- Print Button -->
+      <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()" title="Print official defaulter report">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        <span>Print Roster</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- 4 KPI Analytics Cards -->
+<div class="low-att-kpi-grid">
+  <!-- Defaulters Count -->
+  <div class="low-att-kpi-card">
+    <div class="low-att-kpi-icon {% if summary.defaulters_count > 0 %}danger{% else %}success{% endif %}">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="low-att-kpi-num" style="color:{% if summary.defaulters_count > 0 %}#ef4444{% else %}#10b981{% endif %};">
+        {{ summary.defaulters_count }}
+      </div>
+      <div class="low-att-kpi-label">Defaulters (&lt; {{ threshold|int }}%)</div>
+    </div>
+  </div>
+
+  <!-- Critical Cases (<50%) -->
+  <div class="low-att-kpi-card">
+    <div class="low-att-kpi-icon warning">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="low-att-kpi-num" style="color:#f97316;">{{ summary.critical_count }}</div>
+      <div class="low-att-kpi-label">Critical Shortage (&lt; 50%)</div>
+    </div>
+  </div>
+
+  <!-- Class Average Attendance -->
+  <div class="low-att-kpi-card">
+    <div class="low-att-kpi-icon primary">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="low-att-kpi-num">{{ summary.avg_attendance }}%</div>
+      <div class="low-att-kpi-label">Class Average Attendance</div>
+    </div>
+  </div>
+
+  <!-- Safe Students (Compliant) -->
+  <div class="low-att-kpi-card">
+    <div class="low-att-kpi-icon success">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </div>
+    <div>
+      <div class="low-att-kpi-num" style="color:#10b981;">{{ summary.safe_count }}</div>
+      <div class="low-att-kpi-label">Compliant (&ge; {{ threshold|int }}%)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Defaulter Summary Callout Banner -->
+<div class="card" style="padding:16px 22px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; background:{% if summary.defaulters_count > 0 %}rgba(239, 68, 68, 0.06){% else %}rgba(16, 185, 129, 0.06){% endif %}; border-color:{% if summary.defaulters_count > 0 %}rgba(239, 68, 68, 0.25){% else %}rgba(16, 185, 129, 0.25){% endif %};">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div style="width:40px; height:40px; border-radius:10px; background:{% if summary.defaulters_count > 0 %}#ef4444{% else %}#10b981{% endif %}; color:white; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.15);">
+      {% if summary.defaulters_count > 0 %}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      {% else %}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      {% endif %}
+    </div>
+    <div>
+      <h4 style="font-size:15px; font-weight:800; color:var(--text-main); margin:0;">
+        {% if summary.defaulters_count > 0 %}
+          {{ summary.defaulters_count }} Student{% if summary.defaulters_count > 1 %}s{% endif %} Below Mandatory {{ threshold|int }}% Attendance
+        {% else %}
+          100% Attendance Compliance Achieved
+        {% endif %}
+      </h4>
+      <p style="font-size:12px; color:var(--text-muted); margin:3px 0 0 0;">
+        Evaluated across <strong>{{ summary.total_school_days }}</strong> working school days | Filter: <strong>{{ selected_grade }}</strong>
+      </p>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:8px;">
+    <span class="badge" style="font-size:11.5px; padding:6px 12px; font-weight:700; background:{% if summary.defaulters_count > 0 %}#fee2e2; color:#b91c1c;{% else %}#dcfce7; color:#15803d;{% endif %}">
+      {% if summary.defaulters_count > 0 %}⚠️ Action Required: Send Parent Notices{% else %}✓ All Students Regular{% endif %}
+    </span>
+  </div>
+</div>
+
+<!-- Dispatch Progress Callout -->
+<div id="dispatch-progress-box" style="display:none; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:var(--radius-md); padding:14px 20px; margin-bottom:20px; align-items:center; justify-content:space-between;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div style="width:28px; height:28px; border-radius:50%; background:#10b981; color:white; display:flex; align-items:center; justify-content:center;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </div>
+    <span id="dispatch-progress-text" style="font-size:13px; font-weight:700; color:#065f46;">Dispatch in progress...</span>
+  </div>
+  <button type="button" onclick="document.getElementById('dispatch-progress-box').style.display='none'" style="background:none; border:none; color:#065f46; font-size:18px; cursor:pointer;">&times;</button>
+</div>
+
+<!-- Student Defaulter Roster Card -->
+<div class="card" style="margin-bottom:28px;">
+  <div style="padding:18px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h3 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0;">
+        {% if view_mode == 'defaulters' %}Low Attendance Defaulters List{% else %}Complete Student Attendance Roster{% endif %}
+      </h3>
+      <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">
+        Showing {{ students|length }} student records. Click <strong>WhatsApp Parent</strong> to send instant warning notification.
+      </p>
+    </div>
+
+    <div>
+      <span style="font-size:12px; font-weight:700; color:var(--text-muted); background:var(--bg-app); padding:5px 12px; border-radius:8px; border:1px solid var(--border);">
+        Mandatory Benchmark: <strong>{{ threshold|int }}%</strong>
+      </span>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table" id="students-table" style="margin-bottom:0;">
+      <thead>
+        <tr>
+          <th style="width:240px;">Student Profile</th>
+          <th style="width:130px;">Class & Roll</th>
+          <th style="width:230px;">Attendance Record</th>
+          <th style="width:180px;">Recovery Target</th>
+          <th style="width:190px;">Parent / Guardian</th>
+          <th style="width:220px; text-align:right;">WhatsApp Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if students %}
+          {% for s in students %}
+          <tr class="student-row" data-name="{{ s.full_name|lower }}" data-roll="{{ s.roll_no|lower }}" data-id="{{ s.student_id|lower }}">
+            <!-- Student Profile -->
+            <td>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:40px; height:40px; border-radius:50%; overflow:hidden; background:var(--bg-app); border:2px solid {{ s.risk_border }}; flex-shrink:0;">
+                  {% if s.photo_path %}
+                    <img src="{{ s.photo_path }}" alt="{{ s.full_name }}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ s.full_name|urlencode }}&background=2563eb&color=fff';">
+                  {% else %}
+                    <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--primary); font-size:14px;">
+                      {{ s.full_name[:2]|upper }}
+                    </div>
+                  {% endif %}
+                </div>
+                <div>
+                  <div style="font-weight:700; color:var(--text-main); font-size:13.5px;">{{ s.full_name }}</div>
+                  <div style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:2px;">
+                    <code>{{ s.student_id }}</code>
+                    <span>•</span>
+                    <span>{{ s.gender }}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Class & Roll -->
+            <td>
+              <div style="font-weight:700; font-size:13px; color:var(--text-main);">{{ s.grade }}</div>
+              <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
+                Sec <strong>{{ s.section }}</strong> | Roll #<strong>{{ s.roll_no }}</strong>
+              </div>
+            </td>
+
+            <!-- Attendance Record & Progress Bar -->
+            <td>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span class="risk-badge {% if s.risk_level == 'Critical' %}critical{% elif s.risk_level == 'High Risk' %}high{% elif s.risk_level == 'Warning' %}warning{% else %}safe{% endif %}">
+                  {{ s.percentage }}% — {{ s.risk_level }}
+                </span>
+                <span style="font-size:11.5px; font-weight:700; color:var(--text-muted);">
+                  {{ s.present_days }}/{{ s.total_days }} Days
+                </span>
+              </div>
+
+              <!-- Visual Progress Track -->
+              <div class="att-progress-track">
+                <div class="att-progress-fill {% if s.risk_level == 'Critical' %}fill-critical{% elif s.risk_level == 'High Risk' %}fill-high{% elif s.risk_level == 'Warning' %}fill-warning{% else %}fill-safe{% endif %}"
+                     style="width: {{ s.percentage }}%;"></div>
+              </div>
+
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                {% if s.absent_days > 0 %}
+                  <span style="color:#ef4444; font-weight:600;">{{ s.absent_days }} Days Absent</span>
+                {% else %}
+                  <span style="color:#10b981; font-weight:600;">Perfect Attendance</span>
+                {% endif %}
+              </div>
+            </td>
+
+            <!-- Target Deficit / Classes Needed -->
+            <td>
+              {% if s.is_defaulter %}
+                <div class="deficit-pill" title="Student must attend this many consecutive upcoming classes without absence to achieve {{ threshold|int }}%">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                  <span>Needs <strong>+{{ s.classes_needed }}</strong> classes</span>
+                </div>
+                <div style="font-size:10.5px; color:var(--text-muted); margin-top:3px;">
+                  to reach {{ threshold|int }}% minimum
+                </div>
+              {% else %}
+                <div class="deficit-pill safe-pill">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Target Met (&ge;{{ threshold|int }}%)</span>
+                </div>
+              {% endif %}
+            </td>
+
+            <!-- Parent / Guardian Contact -->
+            <td>
+              <div style="font-weight:700; font-size:13px; color:var(--text-main);">
+                {{ s.guardian_name }}
+              </div>
+              <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px; display:flex; align-items:center; gap:4px;">
+                {% if s.effective_phone %}
+                  <a href="tel:{{ s.effective_phone }}" style="color:var(--text-muted); text-decoration:none;">
+                    📞 {{ s.effective_phone }}
+                  </a>
+                {% else %}
+                  <span style="color:#94a3b8; font-style:italic;">No phone provided</span>
+                {% endif %}
+              </div>
+            </td>
+
+            <!-- WhatsApp Actions -->
+            <td style="text-align:right;">
+              <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap;">
+                {% if s.effective_phone %}
+                  <!-- Single WhatsApp Send Button -->
+                  <button type="button" 
+                          id="btn-wa-{{ s.student_id }}"
+                          class="btn-whatsapp-action" 
+                          onclick="sendSingleLowAttWhatsApp('{{ s.student_id }}', '{{ s.full_name|escape }}', '{{ s.clean_phone }}', '{{ s.whatsapp_message|urlencode }}')"
+                          title="Open WhatsApp chat with prefilled notice">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    <span>WhatsApp</span>
+                  </button>
+
+                  <!-- Preview / Edit Message Modal Trigger -->
+                  <button type="button" class="btn btn-secondary btn-sm" 
+                          onclick="openPreviewModal('{{ s.student_id }}', '{{ s.full_name|escape }}', '{{ s.effective_phone }}', '{{ s.clean_phone }}', '{{ s.whatsapp_message|urlencode }}')"
+                          title="Preview & Customize Message">
+                    💬
+                  </button>
+                {% else %}
+                  <span style="font-size:11.5px; color:var(--text-muted); background:var(--bg-app); padding:4px 8px; border-radius:6px;">
+                    No Phone
+                  </span>
+                {% endif %}
+              </div>
+
+              <!-- Sent Today Badge Indicator -->
+              <div id="sent-status-{{ s.student_id }}" style="margin-top:4px;">
+                {% if s.whatsapp_sent %}
+                  <span style="font-size:10.5px; font-weight:700; color:#059669; display:inline-flex; align-items:center; gap:3px;">
+                    ✓ Notice Logged Today
+                  </span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="6" style="text-align:center; padding:48px 24px;">
+              <div style="width:56px; height:56px; border-radius:50%; background:#ecfdf5; color:#10b981; display:flex; align-items:center; justify-content:center; margin:0 auto 14px auto;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+              <h4 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0 0 6px 0;">No Defaulters Found</h4>
+              <p style="font-size:13px; color:var(--text-muted); max-width:400px; margin:0 auto;">
+                All students currently have attendance of {{ threshold|int }}% or higher, or no students match the selected filter.
+              </p>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     MODAL 1: Single Student Message Previewer & Customizer
+     ========================================================================== -->
+<div id="wa-preview-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div class="card" style="max-width:550px; width:100%; border-radius:var(--radius-lg); overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,0.4); animation:modalIn 0.25s ease;">
+    <!-- Modal Header -->
+    <div style="padding:18px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03);">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:34px; height:34px; border-radius:10px; background:#25d366; color:white; display:flex; align-items:center; justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </div>
+        <div>
+          <h4 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0;">WhatsApp Defaulter Notice</h4>
+          <p id="preview-student-title" style="font-size:12px; color:var(--text-muted); margin:2px 0 0 0;">Student Name</p>
+        </div>
+      </div>
+      <button type="button" onclick="closePreviewModal()" style="background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div style="padding:20px 24px;">
+      <div style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted);">
+          Destination: <strong id="preview-phone-display" style="color:var(--text-main);">+91 ...</strong>
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyCurrentPreviewText()" style="padding:4px 10px; font-size:11px;">
+          📋 Copy Text
+        </button>
+      </div>
+
+      <!-- Editable Message Area -->
+      <label for="preview-message-text" style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px; display:block;">
+        WhatsApp Notice Text (Editable):
+      </label>
+      <textarea id="preview-message-text" rows="11" class="form-control" style="font-family:monospace; font-size:12px; line-height:1.5; padding:12px; width:100%; border-radius:8px;"></textarea>
+    </div>
+
+    <!-- Modal Footer -->
+    <div style="padding:16px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:rgba(255,255,255,0.02);">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closePreviewModal()">Cancel</button>
+      <button type="button" class="btn-whatsapp-action" onclick="dispatchCurrentPreview()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        <span>Send WhatsApp Now</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     MODAL 2: Bulk Defaulter WhatsApp Broadcast Runner
+     ========================================================================== -->
+<div id="wa-broadcast-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div class="card" style="max-width:620px; width:100%; border-radius:var(--radius-lg); overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,0.5); animation:modalIn 0.25s ease;">
+    <!-- Modal Header -->
+    <div style="padding:18px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(18, 140, 126, 0.1));">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:38px; height:38px; border-radius:12px; background:#25d366; color:white; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(37, 211, 102, 0.3);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </div>
+        <div>
+          <h4 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0;">WhatsApp Broadcast to Defaulter Parents</h4>
+          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0 0;">
+            Target: <strong>{{ summary.defaulters_count }}</strong> students with attendance below {{ threshold|int }}%
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeBroadcastModal()" style="background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div style="padding:20px 24px; max-height:420px; overflow-y:auto;">
+      <div style="margin-bottom:16px; font-size:12.5px; color:var(--text-muted); line-height:1.5;">
+        This tool will sequentially launch official WhatsApp attendance warnings to the registered phone numbers of parents and record the dispatch in the database logs.
+      </div>
+
+      <!-- Live Broadcast Progress -->
+      <div id="broadcast-progress-container" style="display:none; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+          <span>Dispatch Progress:</span>
+          <span id="broadcast-counter">0 / {{ summary.defaulters_count }}</span>
+        </div>
+        <div style="width:100%; height:8px; background:rgba(148, 163, 184, 0.2); border-radius:999px; overflow:hidden;">
+          <div id="broadcast-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #25d366, #10b981); transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+
+      <!-- Recipient Defaulter List -->
+      <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+        <div style="padding:10px 14px; background:var(--bg-app); border-bottom:1px solid var(--border); font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">
+          Queued Parents for Dispatch:
+        </div>
+        <div id="broadcast-students-list" style="max-height:220px; overflow-y:auto;">
+          {% for s in students %}
+            {% if s.is_defaulter %}
+              <div style="padding:10px 14px; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+                <div>
+                  <strong>{{ s.full_name }}</strong> ({{ s.grade }} - {{ s.section }})
+                  <div style="font-size:11px; color:var(--text-muted);">
+                    Guardian: {{ s.guardian_name }} • 📞 {{ s.effective_phone or 'No phone' }}
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <span class="risk-badge {% if s.risk_level == 'Critical' %}critical{% elif s.risk_level == 'High Risk' %}high{% else %}warning{% endif %}" style="font-size:11px;">
+                    {{ s.percentage }}%
+                  </span>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div style="padding:16px 24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02);">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeBroadcastModal()">Close</button>
+      <button type="button" id="btn-start-broadcast" class="btn-whatsapp-action" onclick="runSequentialBroadcast()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.159.57 4.186 1.564 5.938l-1.564 5.89 6.079-1.594c1.705.937 3.655 1.47 5.721 1.47 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        <span id="broadcast-btn-text">Start WhatsApp Broadcast</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+</style>
+
+<script>
+// State variables
+let currentPreviewStudentId = '';
+let currentPreviewStudentName = '';
+let currentPreviewCleanPhone = '';
+
+// Live Search Filter for Students Roster
+function filterStudentTable() {
+  const query = (document.getElementById('live-search-input').value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('.student-row');
+  rows.forEach(r => {
+    const name = r.getAttribute('data-name') || '';
+    const roll = r.getAttribute('data-roll') || '';
+    const id = r.getAttribute('data-id') || '';
+    if (!query || name.includes(query) || roll.includes(query) || id.includes(query)) {
+      r.style.display = '';
+    } else {
+      r.style.display = 'none';
+    }
+  });
+}
+
+// Send Single WhatsApp Notice to Parent
+async function sendSingleLowAttWhatsApp(studentId, studentName, cleanPhone, encodedMessage) {
+  const message = decodeURIComponent(encodedMessage);
+  
+  if (!cleanPhone) {
+    alert(`No valid phone number found for ${studentName}'s parent/guardian.`);
+    return;
+  }
+
+  // 1. Log sent status in backend database
+  try {
+    await fetch('/api/whatsapp/low-attendance-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: studentId,
+        student_name: studentName,
+        parent_phone: cleanPhone,
+        message: message
+      })
+    });
+  } catch (err) {
+    console.warn("Could not log WhatsApp dispatch:", err);
+  }
+
+  // 2. Update UI badge
+  const statusEl = document.getElementById(`sent-status-${studentId}`);
+  if (statusEl) {
+    statusEl.innerHTML = `<span style="font-size:10.5px; font-weight:700; color:#059669; display:inline-flex; align-items:center; gap:3px;">✓ Notice Logged Today</span>`;
+  }
+
+  // 3. Launch WhatsApp in new browser tab
+  const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+  window.open(waUrl, '_blank');
+}
+
+// Open Message Preview Modal
+function openPreviewModal(studentId, studentName, phone, cleanPhone, encodedMessage) {
+  currentPreviewStudentId = studentId;
+  currentPreviewStudentName = studentName;
+  currentPreviewCleanPhone = cleanPhone;
+
+  document.getElementById('preview-student-title').textContent = `${studentName} (ID: ${studentId})`;
+  document.getElementById('preview-phone-display').textContent = phone || 'No phone provided';
+  document.getElementById('preview-message-text').value = decodeURIComponent(encodedMessage);
+
+  document.getElementById('wa-preview-modal').style.display = 'flex';
+}
+
+function closePreviewModal() {
+  document.getElementById('wa-preview-modal').style.display = 'none';
+}
+
+function copyCurrentPreviewText() {
+  const text = document.getElementById('preview-message-text').value;
+  navigator.clipboard.writeText(text).then(() => {
+    alert("WhatsApp message notice copied to clipboard!");
+  }).catch(() => {
+    prompt("Copy message text:", text);
+  });
+}
+
+async function dispatchCurrentPreview() {
+  const text = document.getElementById('preview-message-text').value;
+  if (!currentPreviewCleanPhone) {
+    alert("No valid phone number available for this student.");
+    return;
+  }
+
+  // Log in backend
+  try {
+    await fetch('/api/whatsapp/low-attendance-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: currentPreviewStudentId,
+        student_name: currentPreviewStudentName,
+        parent_phone: currentPreviewCleanPhone,
+        message: text
+      })
+    });
+  } catch (e) {
+    console.error(e);
+  }
+
+  // Update UI
+  const statusEl = document.getElementById(`sent-status-${currentPreviewStudentId}`);
+  if (statusEl) {
+    statusEl.innerHTML = `<span style="font-size:10.5px; font-weight:700; color:#059669; display:inline-flex; align-items:center; gap:3px;">✓ Notice Logged Today</span>`;
+  }
+
+  closePreviewModal();
+
+  // Launch WhatsApp
+  const waUrl = `https://api.whatsapp.com/send?phone=${currentPreviewCleanPhone}&text=${encodeURIComponent(text)}`;
+  window.open(waUrl, '_blank');
+}
+
+// Copy All Defaulter Notices
+function copyAllDefaulterMessages() {
+  const rows = document.querySelectorAll('.student-row');
+  let combined = `🏫 ASH EDUCATION - LOW ATTENDANCE PARENT NOTICES (${new Date().toLocaleDateString()})\n\n`;
+  let count = 0;
+
+  rows.forEach(r => {
+    const btn = r.querySelector('.btn-whatsapp-action');
+    if (btn) {
+      const onclickAttr = btn.getAttribute('onclick') || '';
+      const match = onclickAttr.match(/sendSingleLowAttWhatsApp\([^,]+,\s*'([^']+)',\s*'([^']*)',\s*'([^']+)'\)/);
+      if (match) {
+        const studentName = match[1];
+        const phone = match[2];
+        const msg = decodeURIComponent(match[3]);
+        combined += `========================================\nSTUDENT: ${studentName} | PARENT PHONE: ${phone}\n========================================\n${msg}\n\n`;
+        count++;
+      }
+    }
+  });
+
+  if (count === 0) {
+    alert("No defaulter notices found to copy.");
+    return;
+  }
+
+  navigator.clipboard.writeText(combined).then(() => {
+    alert(`Copied ${count} parent attendance warning notices to clipboard!`);
+  }).catch(() => {
+    prompt("Copy all notices:", combined);
+  });
+}
+
+// Bulk Broadcast Modal
+function openBroadcastModal() {
+  document.getElementById('wa-broadcast-modal').style.display = 'flex';
+}
+
+function closeBroadcastModal() {
+  document.getElementById('wa-broadcast-modal').style.display = 'none';
+}
+
+// Run Sequential WhatsApp Broadcast
+async function runSequentialBroadcast() {
+  const btn = document.getElementById('btn-start-broadcast');
+  const progressContainer = document.getElementById('broadcast-progress-container');
+  const progressBar = document.getElementById('broadcast-bar');
+  const counterEl = document.getElementById('broadcast-counter');
+
+  btn.disabled = true;
+  btn.innerHTML = `<span>Dispatching Alerts...</span>`;
+  progressContainer.style.display = 'block';
+
+  try {
+    const threshold = document.getElementById('threshold-select').value;
+    const grade = document.getElementById('grade-select').value;
+
+    const res = await fetch(`/api/whatsapp/low-attendance-list?threshold=${threshold}&grade=${grade}`);
+    const data = await res.json();
+    const defaulters = data.defaulters || [];
+
+    if (defaulters.length === 0) {
+      alert("No students below the selected attendance threshold.");
+      closeBroadcastModal();
+      return;
+    }
+
+    // Call bulk-send logging endpoint
+    await fetch('/api/whatsapp/low-attendance-send-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threshold: threshold, grade: grade })
+    });
+
+    // Sequentially open WhatsApp tabs for each parent with a valid phone number
+    let sentCount = 0;
+    for (let i = 0; i < defaulters.length; i++) {
+      const s = defaulters[i];
+      if (s.whatsapp_url && s.clean_phone) {
+        window.open(s.whatsapp_url, '_blank');
+        sentCount++;
+      }
+
+      // Update progress bar
+      const pct = Math.round(((i + 1) / defaulters.length) * 100);
+      progressBar.style.width = `${pct}%`;
+      counterEl.textContent = `${i + 1} / ${defaulters.length}`;
+
+      // Update UI row badge
+      const statusEl = document.getElementById(`sent-status-${s.student_id}`);
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="font-size:10.5px; font-weight:700; color:#059669; display:inline-flex; align-items:center; gap:3px;">✓ Notice Logged Today</span>`;
+      }
+
+      // 400ms delay between tabs to prevent browser popup block
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    // Show live progress alert callout on main page
+    const box = document.getElementById('dispatch-progress-box');
+    const boxText = document.getElementById('dispatch-progress-text');
+    if (box && boxText) {
+      box.style.display = 'flex';
+      boxText.textContent = `Successfully logged and prepared ${sentCount} WhatsApp parent notices.`;
+    }
+
+    setTimeout(() => {
+      closeBroadcastModal();
+      btn.disabled = false;
+      btn.innerHTML = `<span>Start WhatsApp Broadcast</span>`;
+    }, 1000);
+
+  } catch (err) {
+    alert("Broadcast error: " + err.message);
+    btn.disabled = false;
+    btn.innerHTML = `<span>Start WhatsApp Broadcast</span>`;
+  }
+}
+</script>
+{% endblock %}
