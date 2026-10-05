@@ -33,7 +33,7 @@ import urllib.parse
 from face_engine import (
     base64_to_cv2, cv2_to_base64, detect_faces,
     save_student_face_samples, train_face_recognizer,
-    analyze_frame_faces, reload_recognizer, TRAINER_PATH,
+    analyze_frame_faces, reload_recognizer, TRAINER_PATH, DATASET_DIR,
     robust_decode_image, validate_face_quality, preprocess_face_crop
 )
 
@@ -53,10 +53,14 @@ def get_student_maps():
         db_to_stu[s['id']] = s
     return s_to_db, db_to_stu
 
-# Initial training check on app boot
-s_to_db, _ = get_student_maps()
-if os.path.exists('static/dataset') and len(os.listdir('static/dataset')) > 0:
-    train_face_recognizer(s_to_db)
+# Initial training check on app boot safely wrapped for serverless environments
+try:
+    s_to_db, _ = get_student_maps()
+    if os.path.exists(DATASET_DIR) and len(os.listdir(DATASET_DIR)) > 0:
+        train_face_recognizer(s_to_db)
+except Exception as e:
+    print(f"Initial face training check notice: {e}")
+
 
 # ----------------- PAGE ROUTES ----------------- #
 

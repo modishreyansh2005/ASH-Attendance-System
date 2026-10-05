@@ -1,9 +1,24 @@
 import sqlite3
 import os
 import re
+import shutil
 from datetime import datetime, date
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'attendance.db')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ORIGINAL_DB_PATH = os.path.join(BASE_DIR, 'attendance.db')
+
+# On Vercel or read-only filesystem environments, copy DB to /tmp for write access
+if os.environ.get('VERCEL') or not os.access(BASE_DIR, os.W_OK):
+    TMP_DIR = '/tmp'
+    DB_PATH = os.path.join(TMP_DIR, 'attendance.db')
+    if os.path.exists(ORIGINAL_DB_PATH) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copy2(ORIGINAL_DB_PATH, DB_PATH)
+        except Exception as e:
+            print(f"Error copying DB to /tmp: {e}")
+else:
+    DB_PATH = ORIGINAL_DB_PATH
+
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)

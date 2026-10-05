@@ -6,15 +6,36 @@ from PIL import Image, ImageOps
 import io
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+if os.environ.get('VERCEL') or not os.access(BASE_DIR, os.W_OK):
+    TMP_DIR = '/tmp'
+    MODELS_DIR = os.path.join(TMP_DIR, 'models')
+    DATASET_DIR = os.path.join(TMP_DIR, 'static', 'dataset')
+    PROFILES_DIR = os.path.join(TMP_DIR, 'static', 'uploads', 'profiles')
+    
+    # Copy bundled models to /tmp if not already copied
+    bundled_models = os.path.join(BASE_DIR, 'models')
+    if os.path.exists(bundled_models) and not os.path.exists(MODELS_DIR):
+        try:
+            import shutil
+            shutil.copytree(bundled_models, MODELS_DIR)
+        except Exception:
+            pass
+else:
+    MODELS_DIR = os.path.join(BASE_DIR, 'models')
+    DATASET_DIR = os.path.join(BASE_DIR, 'static', 'dataset')
+    PROFILES_DIR = os.path.join(BASE_DIR, 'static', 'uploads', 'profiles')
+
 CASCADE_PATH = os.path.join(MODELS_DIR, 'haarcascade_frontalface_default.xml')
 TRAINER_PATH = os.path.join(MODELS_DIR, 'trainer.yml')
-DATASET_DIR = os.path.join(BASE_DIR, 'static', 'dataset')
-PROFILES_DIR = os.path.join(BASE_DIR, 'static', 'uploads', 'profiles')
 
-os.makedirs(MODELS_DIR, exist_ok=True)
-os.makedirs(DATASET_DIR, exist_ok=True)
-os.makedirs(PROFILES_DIR, exist_ok=True)
+try:
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    os.makedirs(DATASET_DIR, exist_ok=True)
+    os.makedirs(PROFILES_DIR, exist_ok=True)
+except Exception:
+    pass
+
 
 # Global instances
 face_cascade = None
