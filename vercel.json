@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/public",
   "builds": [
     {
       "src": "backend/app.py",

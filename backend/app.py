@@ -1,6 +1,11 @@
+import sys
 import os
 import io
 import csv
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 from datetime import datetime, date, timedelta
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response, make_response, session
 from werkzeug.utils import secure_filename
