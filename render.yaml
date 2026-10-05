@@ -5,7 +5,8 @@ services:
     region: singapore
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn backend.app:app
+    startCommand: gunicorn backend.app:app --timeout 120 --workers 2 --threads 4
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.11
+

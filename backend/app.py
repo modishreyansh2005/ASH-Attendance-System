@@ -533,12 +533,17 @@ def register_student():
                     category=category, dob=dob
                 )
 
-            # Retrain model
-            s_map, _ = get_student_maps()
-            train_face_recognizer(s_map)
-            flash(f'Student {full_name} enrolled successfully with {count} face samples trained!', 'success')
+            # Retrain model safely without crashing server
+            try:
+                s_map, _ = get_student_maps()
+                train_face_recognizer(s_map)
+                flash(f'Student {full_name} enrolled successfully with {count} face samples trained!', 'success')
+            except Exception as train_err:
+                print(f"Notice: Face training warning: {train_err}")
+                flash(f'Student {full_name} enrolled successfully! (Face samples stored)', 'success')
         else:
             flash(f'Student {full_name} registered without camera samples. You can add face data anytime.', 'warning')
+
 
         return redirect(url_for('students_list'))
 
@@ -558,18 +563,25 @@ def remove_student(student_id):
     if student:
         name = student["full_name"]
         delete_student(student_id, auto_reorder=True)
-        # Retrain model with updated mapping
-        s_map, _ = get_student_maps()
-        train_face_recognizer(s_map)
+        # Retrain model with updated mapping safely
+        try:
+            s_map, _ = get_student_maps()
+            train_face_recognizer(s_map)
+        except Exception as e:
+            print(f"Notice on student deletion retrain: {e}")
         flash(f'Student {name} removed successfully. Roster order and IDs automatically updated.', 'info')
     return redirect(url_for('students_list'))
 
 @app.route('/students/reorder', methods=['POST', 'GET'])
 def reorder_students_route():
     ok, msg = reorder_all_students()
-    s_map, _ = get_student_maps()
-    train_face_recognizer(s_map)
+    try:
+        s_map, _ = get_student_maps()
+        train_face_recognizer(s_map)
+    except Exception as e:
+        print(f"Notice on student reorder retrain: {e}")
     flash(f'{msg}', 'success' if ok else 'warning')
+
     return redirect(url_for('students_list'))
 
 @app.route('/students/edit/<student_id>', methods=['POST'])
