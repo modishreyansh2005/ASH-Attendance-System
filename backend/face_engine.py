@@ -22,9 +22,11 @@ if os.environ.get('VERCEL') or not os.access(BASE_DIR, os.W_OK):
         except Exception:
             pass
 else:
+    PROJECT_ROOT = os.path.dirname(BASE_DIR)
+    FRONTEND_STATIC = os.path.join(PROJECT_ROOT, 'frontend', 'static')
     MODELS_DIR = os.path.join(BASE_DIR, 'models')
-    DATASET_DIR = os.path.join(BASE_DIR, 'static', 'dataset')
-    PROFILES_DIR = os.path.join(BASE_DIR, 'static', 'uploads', 'profiles')
+    DATASET_DIR = os.path.join(FRONTEND_STATIC, 'dataset')
+    PROFILES_DIR = os.path.join(FRONTEND_STATIC, 'uploads', 'profiles')
 
 CASCADE_PATH = os.path.join(MODELS_DIR, 'haarcascade_frontalface_default.xml')
 TRAINER_PATH = os.path.join(MODELS_DIR, 'trainer.yml')
