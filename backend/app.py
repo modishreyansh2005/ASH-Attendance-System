@@ -37,6 +37,8 @@ from face_engine import (
     robust_decode_image, validate_face_quality, preprocess_face_crop
 )
 
+from flask_cors import CORS
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
@@ -44,6 +46,7 @@ TEMPLATE_DIR = os.path.join(PROJECT_ROOT, 'frontend', 'templates')
 STATIC_DIR = os.path.join(PROJECT_ROOT, 'frontend', 'static')
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+CORS(app, supports_credentials=True)
 app.secret_key = 'ash-edu-smart-attendance-system-key-2026'
 
 # Ensure database and folders exist

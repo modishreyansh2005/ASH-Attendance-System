@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ash-attendance-backend
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn --chdir backend app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.11
