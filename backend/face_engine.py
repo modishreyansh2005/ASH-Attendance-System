@@ -45,6 +45,19 @@ alt2_cascade = None
 profile_cascade = None
 eye_cascade = None
 lbph_recognizer = None
+dnn_net = None
+
+def get_dnn_net():
+    global dnn_net
+    if dnn_net is None:
+        prototxt = os.path.join(MODELS_DIR, 'deploy.prototxt')
+        caffemodel = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000.caffemodel')
+        if os.path.exists(prototxt) and os.path.exists(caffemodel):
+            try:
+                dnn_net = cv2.dnn.readNetFromCaffe(prototxt, caffemodel)
+            except Exception as e:
+                print(f"Error loading DNN model: {e}")
+    return dnn_net
 
 def get_cascades():
     """Initializes and returns primary and secondary Haar face cascades."""
@@ -158,22 +171,39 @@ def cv2_to_base64(cv2_img, format='.jpg'):
 
 def detect_faces(image_bgr, min_face_size=None, high_sensitivity=False):
     """
-    High-accuracy multi-stage face detector for uploaded photos and live camera frames:
-    1. Automatic resolution normalization (resizes large 12MP/48MP photos for optimal Haar detection).
-    2. Multi-stage cascade pipeline:
-       - Stage 1: Frontal face alt2 (tuned for high precision on clear frontal portraits)
-       - Stage 2: Frontal face default
-       - Stage 3: CLAHE adaptive contrast enhanced pass (detects faces in harsh lighting, shadows, backlit photos)
-       - Stage 4: Profile cascades (left-facing and mirrored right-facing)
-       - Stage 5: Rotational search (-15°, +15°) for tilted selfies and natural head poses
-       - Stage 6: High-sensitivity close-up pass for passport/portrait photos
-    3. Multi-scale bounding box projection back to original image coordinates.
-    4. Non-Maximum Suppression (NMS) and candidate ranking by area.
+    High-accuracy multi-stage face detector for uploaded photos and live camera frames.
+    Uses DNN SSD ResNet-10 model for YOLO-level accuracy if available, falling back to Haar cascades.
     """
     if image_bgr is None or image_bgr.size == 0:
         return []
 
     h_orig, w_orig = image_bgr.shape[:2]
+
+    # Use Highly Accurate DNN Model if available
+    net = get_dnn_net()
+    if net is not None:
+        blob = cv2.dnn.blobFromImage(cv2.resize(image_bgr, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+        net.setInput(blob)
+        detections = net.forward()
+        
+        candidates = []
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+            if confidence > 0.45:  # High confidence threshold for DNN
+                box = detections[0, 0, i, 3:7] * np.array([w_orig, h_orig, w_orig, h_orig])
+                (startX, startY, endX, endY) = box.astype("int")
+                
+                startX, startY = max(0, startX), max(0, startY)
+                endX, endY = min(w_orig - 1, endX), min(h_orig - 1, endY)
+                w, h = endX - startX, endY - startY
+                
+                if w >= 25 and h >= 25:
+                    candidates.append((startX, startY, w, h))
+                    
+        if len(candidates) > 0:
+            return candidates
+
+    # Fallback to Haar Cascades
     c_default, c_alt2, c_profile = get_cascades()
 
     # Normalize image resolution for fast and accurate Haar detection (max dimension 960px)
@@ -199,7 +229,7 @@ def detect_faces(image_bgr, min_face_size=None, high_sensitivity=False):
     candidates = []
 
     # Helper to run detection
-    def run_detector(cascade, img_gray, scale_f=1.08, min_n=4):
+    def run_detector(cascade, img_gray, scale_f=1.05, min_n=3):
         if cascade and not cascade.empty():
             faces = cascade.detectMultiScale(img_gray, scaleFactor=scale_f, minNeighbors=min_n, minSize=min_size)
             if len(faces) > 0:
@@ -207,41 +237,37 @@ def detect_faces(image_bgr, min_face_size=None, high_sensitivity=False):
         return []
 
     # Stage 1: alt2 on raw grayscale
-    candidates.extend(run_detector(c_alt2, gray, scale_f=1.08, min_n=4))
+    candidates.extend(run_detector(c_alt2, gray, scale_f=1.05, min_n=3))
 
-    # Stage 2: default frontal face on raw grayscale
-    if len(candidates) == 0:
-        candidates.extend(run_detector(c_default, gray, scale_f=1.08, min_n=4))
+    # Stage 2: default frontal face on raw grayscale (Always run for multiple people support)
+    candidates.extend(run_detector(c_default, gray, scale_f=1.05, min_n=3))
 
     # Stage 3: CLAHE adaptive contrast pass (handles shadows, bright sunlight, indoor lighting)
-    if len(candidates) == 0:
+    if len(candidates) == 0 or high_sensitivity:
         clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8))
         eq = clahe.apply(gray)
-        candidates.extend(run_detector(c_alt2, eq, scale_f=1.08, min_n=3))
-        if len(candidates) == 0:
-            candidates.extend(run_detector(c_default, eq, scale_f=1.08, min_n=3))
+        candidates.extend(run_detector(c_alt2, eq, scale_f=1.05, min_n=3))
+        candidates.extend(run_detector(c_default, eq, scale_f=1.05, min_n=3))
 
     # Stage 4: Profile cascade (for turned head poses)
-    if len(candidates) == 0 and c_profile and not c_profile.empty():
+    if (len(candidates) == 0 or high_sensitivity) and c_profile and not c_profile.empty():
         # Left-facing profile
-        candidates.extend(run_detector(c_profile, gray, scale_f=1.10, min_n=3))
-        if len(candidates) == 0:
-            # Right-facing profile (flip horizontally)
-            gray_flipped = cv2.flip(gray, 1)
-            f_prof_flip = run_detector(c_profile, gray_flipped, scale_f=1.10, min_n=3)
-            for (fx, fy, fw, fh) in f_prof_flip:
-                orig_x = w_img - (fx + fw)
-                candidates.append([orig_x, fy, fw, fh])
+        candidates.extend(run_detector(c_profile, gray, scale_f=1.08, min_n=3))
+        # Right-facing profile (flip horizontally)
+        gray_flipped = cv2.flip(gray, 1)
+        f_prof_flip = run_detector(c_profile, gray_flipped, scale_f=1.08, min_n=3)
+        for (fx, fy, fw, fh) in f_prof_flip:
+            orig_x = w_img - (fx + fw)
+            candidates.append([orig_x, fy, fw, fh])
 
     # Stage 5: Rotational search (-15°, +15°) for tilted portraits / selfies
-    if len(candidates) == 0:
+    if len(candidates) == 0 or high_sensitivity:
         center = (w_img / 2.0, h_img / 2.0)
         for angle in [-14, 14]:
             M = cv2.getRotationMatrix2D(center, angle, 1.0)
             rotated_gray = cv2.warpAffine(gray, M, (w_img, h_img))
-            f_rot = run_detector(c_alt2, rotated_gray, scale_f=1.08, min_n=3)
-            if len(f_rot) == 0:
-                f_rot = run_detector(c_default, rotated_gray, scale_f=1.08, min_n=3)
+            f_rot = run_detector(c_alt2, rotated_gray, scale_f=1.05, min_n=3)
+            f_rot.extend(run_detector(c_default, rotated_gray, scale_f=1.05, min_n=3))
             if len(f_rot) > 0:
                 M_inv = cv2.getRotationMatrix2D(center, -angle, 1.0)
                 for (rx, ry, rw, rh) in f_rot:
@@ -251,13 +277,11 @@ def detect_faces(image_bgr, min_face_size=None, high_sensitivity=False):
                     ox = int(orig_pt[0] - rw / 2.0)
                     oy = int(orig_pt[1] - rh / 2.0)
                     candidates.append([ox, oy, rw, rh])
-                break
 
     # Stage 6: Close-up passport fallback
     if len(candidates) == 0 or high_sensitivity:
-        candidates.extend(run_detector(c_alt2, gray, scale_f=1.05, min_n=2))
-        if len(candidates) == 0:
-            candidates.extend(run_detector(c_default, gray, scale_f=1.05, min_n=2))
+        candidates.extend(run_detector(c_alt2, gray, scale_f=1.03, min_n=2))
+        candidates.extend(run_detector(c_default, gray, scale_f=1.03, min_n=2))
 
     if len(candidates) == 0:
         return []
@@ -585,7 +609,7 @@ def train_face_recognizer(student_id_to_db_id_map):
 
     return True, f"Successfully trained model with {len(face_samples)} face samples across {trained_students} students."
 
-def analyze_frame_faces(image_bgr, db_id_to_student_dict, distance_threshold=80.0, exclude_student_ids=None):
+def analyze_frame_faces(image_bgr, db_id_to_student_dict, distance_threshold=95.0, exclude_student_ids=None):
     """
     Detects faces in frame and performs multi-crop biometric recognition pipeline:
     1. Robust multi-stage detection.

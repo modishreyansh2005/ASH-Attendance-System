@@ -470,8 +470,8 @@ def register_student():
         if not guardian_phone and parent_phone:
             guardian_phone = parent_phone
 
-        if not student_id or not full_name or not grade or not roll_no:
-            flash('Please fill in all required student details (ID, Name, Grade, Roll No).', 'error')
+        if not student_id or not full_name or not grade or not roll_no or not dob or not parent_phone:
+            flash('Please fill in all required student details (ID, Name, Grade, Roll No, DOB, Parent Phone).', 'error')
             return redirect(url_for('register_student'))
 
         # Check duplicate
@@ -562,7 +562,7 @@ def remove_student(student_id):
     student = get_student_by_id(student_id)
     if student:
         name = student["full_name"]
-        delete_student(student_id, auto_reorder=True)
+        delete_student(student_id, auto_reorder=False)
         # Retrain model with updated mapping safely
         try:
             s_map, _ = get_student_maps()
@@ -1336,7 +1336,7 @@ def process_frame():
     today_str = date.today().isoformat()
     already_marked_ids = get_today_marked_student_ids(today_str)
 
-    analysis = analyze_frame_faces(img_bgr, db_to_stu, distance_threshold=80.0, exclude_student_ids=already_marked_ids)
+    analysis = analyze_frame_faces(img_bgr, db_to_stu, distance_threshold=95.0, exclude_student_ids=already_marked_ids)
 
     marked_events = []
     now_time = datetime.now().strftime('%H:%M:%S')
